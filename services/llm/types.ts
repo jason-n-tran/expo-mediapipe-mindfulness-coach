@@ -57,3 +57,30 @@ export interface ModelManagerInterface {
   validateModel(): Promise<boolean>;
   deleteModel(): Promise<void>;
 }
+
+export interface InferenceOptions {
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  systemPrompt?: string;
+  contextWindow?: number;
+}
+
+export interface ModelCapabilities {
+  maxContextLength: number;
+  supportsStreaming: boolean;
+  modelName: string;
+  version: string;
+}
+
+export interface LLMServiceInterface {
+  initialize(modelPath: string): Promise<void>;
+  generateResponse(
+    messages: ChatMessage[],
+    options: InferenceOptions,
+    onToken: (token: string) => void
+  ): Promise<string>;
+  stopGeneration(): void;
+  isReady(): boolean;
+  getCapabilities(): ModelCapabilities;
+}
