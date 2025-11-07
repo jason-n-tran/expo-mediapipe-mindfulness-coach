@@ -138,6 +138,7 @@
 
 
 
+
   - [x] 7.1 Create LLMService class with expo-llm-mediapipe integration
 
 
@@ -165,26 +166,39 @@
     - Handle out-of-memory errors gracefully
     - _Requirements: 7.1, 9.2_
 
-- [ ] 8. Create custom hooks for state management
-  - [ ] 8.1 Implement useModelManager hook
+- [x] 8. Create custom hooks for state management
+
+
+
+
+
+
+  - [x] 8.1 Implement useModelManager hook
+
     - Wrap ModelManager service with React state
     - Provide model status, download progress, and control functions
     - Handle model download lifecycle
     - _Requirements: 1.1, 1.2, 1.4_
   
-  - [ ] 8.2 Implement useMessageStore hook
+  - [x] 8.2 Implement useMessageStore hook
+
+
     - Wrap MessageStore service with React state
     - Provide messages array and CRUD operations
     - Handle automatic message loading on mount
     - _Requirements: 4.1, 4.5_
   
-  - [ ] 8.3 Implement useLLM hook
+  - [x] 8.3 Implement useLLM hook
+
+
     - Wrap LLMService with React state
     - Manage inference state (idle, generating, error)
     - Provide generateResponse function with streaming support
     - _Requirements: 2.2, 7.1_
   
-  - [ ] 8.4 Implement useChat hook
+  - [x] 8.4 Implement useChat hook
+
+
     - Combine useMessageStore and useLLM for complete chat functionality
     - Manage conversation state and message flow
     - Handle sending messages and receiving responses
