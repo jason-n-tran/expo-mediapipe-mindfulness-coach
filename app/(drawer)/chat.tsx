@@ -19,6 +19,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { QuickActions } from '@/components/chat/QuickActions';
 import { StreamingText } from '@/components/chat/StreamingText';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useChat } from '@/hooks/useChat';
 import { ChatMessage as ChatMessageType, QuickAction } from '@/types';
 import { COLORS, SPACING } from '@/constants/theme';
@@ -173,6 +174,9 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['bottom']}>
+      {/* Offline Indicator */}
+      <OfflineIndicator />
+      
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

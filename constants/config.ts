@@ -4,7 +4,7 @@
 
 export const APP_CONFIG = {
   model: {
-    name: 'gemma-3n-E4B',
+    name: 'gemma-1.1-2b-it-cpu-int4.bin', // Using working model for now
     downloadUrl: 'configured-by-expo-llm-mediapipe',
     maxContextTokens: 2048,
     defaultTemperature: 0.7,
@@ -50,4 +50,5 @@ export const STORAGE_KEYS = {
   SETTINGS: 'settings',
   MODEL_METADATA: 'model_metadata',
   USER_PREFERENCES: 'user_preferences',
+  FIRST_LAUNCH: 'first_launch',
 } as const;

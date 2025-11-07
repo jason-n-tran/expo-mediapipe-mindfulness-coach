@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Drawer } from 'expo-router/drawer';
+import { useRouter, useSegments } from 'expo-router';
 import {
   Menu,
   MenuItem,
@@ -7,6 +9,8 @@ import {
 } from '@/components/ui/menu';
 import { Button } from '@/components/ui/button';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppInitializationContext } from '@/contexts/AppInitializationContext';
+import { AppInitializationScreen } from '@/components/AppInitializationScreen';
 
 function Example() {
   return (
@@ -53,11 +57,46 @@ function Example() {
 
 
 export default function Layout() {
+  const { initializationState, isReady, error, retryInitialization } = useAppInitializationContext();
+  const router = useRouter();
+  const segments = useSegments();
+
+  // Handle navigation based on initialization state
+  useEffect(() => {
+    if (initializationState === 'model-missing') {
+      // Navigate to model setup screen
+      if (!segments.includes('model-setup')) {
+        router.replace('/(drawer)/model-setup');
+      }
+    } else if (isReady) {
+      // Navigate to chat screen when ready
+      if (segments.includes('model-setup')) {
+        router.replace('/(drawer)/chat');
+      }
+    }
+  }, [initializationState, isReady, segments, router]);
+
+  // Show initialization screen for loading states
+  if (initializationState === 'checking' || 
+      initializationState === 'initializing-llm' || 
+      initializationState === 'loading-history' ||
+      initializationState === 'error') {
     return (
-        <Drawer>
-            <Drawer.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
-            <Drawer.Screen name="chat" options={{ title: 'Mindfulness Coach' }} />
-            <Drawer.Screen name="index" options={{ headerRight: () => <Example />, title: 'Demo Overview' }} />
-        </Drawer>
+      <AppInitializationScreen
+        state={initializationState}
+        error={error}
+        onRetry={retryInitialization}
+      />
     );
-};
+  }
+
+  // Show normal drawer navigation when ready or during model download
+  return (
+    <Drawer>
+      <Drawer.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
+      <Drawer.Screen name="chat" options={{ title: 'Mindfulness Coach' }} />
+      <Drawer.Screen name="model-setup" options={{ title: 'Setup', headerShown: false }} />
+      <Drawer.Screen name="index" options={{ headerRight: () => <Example />, title: 'Demo Overview' }} />
+    </Drawer>
+  );
+}
