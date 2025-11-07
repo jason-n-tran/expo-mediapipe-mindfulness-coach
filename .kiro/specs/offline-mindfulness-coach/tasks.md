@@ -13,7 +13,12 @@
   - Configure TypeScript paths for service and component imports
   - _Requirements: 1.1, 6.2_
 
-- [ ] 2. Create core type definitions and constants
+- [x] 2. Create core type definitions and constants
+
+
+
+
+
   - Define ChatMessage, ModelStatus, InferenceOptions, and other core types in types/ directory
   - Create constants file with app configuration (model settings, storage settings, UI settings)
   - Define system prompts and topic-specific prompt templates in constants/prompts.ts
