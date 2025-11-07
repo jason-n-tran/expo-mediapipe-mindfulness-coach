@@ -3,7 +3,16 @@
  */
 
 export { ModelManager, modelManager } from './ModelManager';
-export type { ModelStatus, DownloadProgress, ModelMetadata, ModelManagerInterface } from './types';
+export { PromptBuilder, promptBuilder } from './PromptBuilder';
+export type { 
+  ModelStatus, 
+  DownloadProgress, 
+  ModelMetadata, 
+  ModelManagerInterface,
+  PromptBuilderInterface,
+  PromptOptions,
+  UserContext,
+} from './types';
 export {
   ModelError,
   InsufficientStorageError,

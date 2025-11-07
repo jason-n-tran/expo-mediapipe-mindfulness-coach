@@ -2,6 +2,28 @@
  * LLM service type definitions
  */
 
+import { ChatMessage, MindfulnessTopic, QuickAction } from '../../types';
+
+export interface PromptOptions {
+  emphasizeBuddhism?: boolean;
+  emphasizeStoicism?: boolean;
+  userContext?: UserContext;
+  conversationGoal?: string;
+}
+
+export interface UserContext {
+  recentTopics?: string[];
+  emotionalState?: string;
+  timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'night';
+}
+
+export interface PromptBuilderInterface {
+  buildSystemPrompt(options?: PromptOptions): string;
+  addTopicEmphasis(topic: MindfulnessTopic): string;
+  formatConversationHistory(messages: ChatMessage[]): string;
+  getQuickActionPrompt(action: QuickAction): string;
+}
+
 export interface ModelStatus {
   isAvailable: boolean;
   isDownloading: boolean;
