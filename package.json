@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@expo/html-elements": "^0.10.1",
+    "@expo/vector-icons": "^15.0.3",
     "@gluestack-ui/core": "^3.0.10",
     "@gluestack-ui/utils": "^3.0.11",
     "@legendapp/motion": "^2.3.0",
@@ -21,7 +22,7 @@
     "expo-linking": "~8.0.8",
     "expo-router": "~6.0.14",
     "expo-status-bar": "~3.0.8",
-    "nativewind": "^4.1.23",
+    "nativewind": "4.2.1",
     "react": "19.1.0",
     "react-aria": "^3.33.0",
     "react-dom": "19.1.0",
