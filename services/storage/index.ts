@@ -3,4 +3,5 @@
  */
 
 export * from './MessageStore';
+export * from './SettingsStore';
 export * from './types';

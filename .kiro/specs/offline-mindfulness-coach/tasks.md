@@ -90,7 +90,12 @@
     - Add deleteMessages() and clearAllMessages() for data management
     - _Requirements: 8.5_
 
-- [ ] 5. Implement Settings Store service
+- [x] 5. Implement Settings Store service
+
+
+
+
+
   - Create SettingsStore class using MMKV
   - Implement getInferenceSettings() and updateInferenceSettings()
   - Implement getUIPreferences() and updateUIPreferences()
