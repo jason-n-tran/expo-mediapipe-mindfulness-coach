@@ -38,7 +38,7 @@ This document specifies the requirements for an offline mindfulness coach mobile
 2. WHEN the LLM Service generates a response, THE Chat Interface SHALL display tokens in real-time as they are produced by the model
 3. THE Chat Interface SHALL provide a text input field with send button for composing new messages
 4. WHEN a user sends a message, THE Chat Interface SHALL disable the input field until the model completes its response
-5. THE Chat Interface SHALL use NativeWind and Gluestack-UI components for all styling and visual elements
+5. THE Chat Interface SHALL use NativeWind and Gluestack-UI components exclusively for all UI elements including sliders, buttons, switches, and other interactive components
 6. THE Chat Interface SHALL implement smooth animations using react-native-reanimated for message appearance and transitions
 
 ### Requirement 3: Mindfulness Coach Personality

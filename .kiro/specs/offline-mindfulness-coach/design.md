@@ -11,6 +11,39 @@ The Offline Mindfulness Coach is a React Native mobile application built with Ex
 3. **User Experience**: Clean, modern interface with streaming responses and thoughtful animations
 4. **Data Privacy**: All conversations stored locally on device
 5. **Scalability**: Modular architecture supporting future enhancements
+6. **UI Component Library**: Exclusive use of Gluestack-UI components for all interactive elements
+
+### UI Component Library Standards
+
+**Gluestack-UI Component Usage**:
+- ALL UI components MUST use Gluestack-UI components exclusively
+- This includes: Slider, Button, Switch, Input, Select, Modal, Alert, and all other interactive elements
+- Components should be installed via: `npx gluestack-ui add <component-name>`
+- DO NOT use third-party component libraries like @react-native-community/slider
+- DO NOT use custom implementations when Gluestack-UI provides the component
+- Styling should use NativeWind (Tailwind CSS) classes alongside Gluestack-UI
+
+**Component Installation Process**:
+1. Check if component exists in `components/ui/` directory
+2. If not available, install using: `npx gluestack-ui add <component-name>`
+3. Import from `@/components/ui/<component-name>`
+4. Follow Gluestack-UI documentation for proper usage patterns
+
+**Example Component Usage**:
+```typescript
+// Correct: Using Gluestack-UI Slider
+import { Slider, SliderTrack, SliderFilledTrack, SliderThumb } from '@/components/ui/slider';
+
+<Slider minValue={0} maxValue={1} step={0.01} value={temperature}>
+  <SliderTrack>
+    <SliderFilledTrack />
+  </SliderTrack>
+  <SliderThumb />
+</Slider>
+
+// Incorrect: Using third-party slider
+import Slider from '@react-native-community/slider'; // ❌ DO NOT USE
+```
 
 ## Architecture
 

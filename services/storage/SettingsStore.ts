@@ -2,19 +2,18 @@
  * SettingsStore - Persistent storage for app settings using MMKV
  */
 
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 import { InferenceSettings, UIPreferences } from '../../types';
 import { DEFAULT_INFERENCE_SETTINGS, DEFAULT_UI_PREFERENCES, STORAGE_KEYS } from '../../constants/config';
 
 export class SettingsStore {
-  private storage: MMKV;
+  private storage: ReturnType<typeof createMMKV>;
   private inferenceSettingsKey = `${STORAGE_KEYS.SETTINGS}:inference`;
   private uiPreferencesKey = `${STORAGE_KEYS.SETTINGS}:ui`;
 
   constructor() {
-    this.storage = new MMKV({
+    this.storage = createMMKV({
       id: 'mindfulness-coach-settings',
-      encryptionKey: undefined, // Can be added for encryption if needed
     });
   }
 

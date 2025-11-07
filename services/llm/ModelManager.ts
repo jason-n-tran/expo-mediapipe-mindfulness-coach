@@ -4,11 +4,11 @@
 
 import { modelManager as expoModelManager } from 'expo-llm-mediapipe';
 import * as FileSystem from 'expo-file-system';
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 import { APP_CONFIG, STORAGE_KEYS } from '@/constants/config';
 import type { ModelStatus, DownloadProgress, ModelMetadata, ModelManagerInterface } from './types';
 
-const storage = new MMKV();
+const storage = createMMKV();
 
 // Model configuration
 const MODEL_NAME = APP_CONFIG.model.name;
