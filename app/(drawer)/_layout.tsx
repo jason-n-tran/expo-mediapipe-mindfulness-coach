@@ -56,6 +56,7 @@ export default function Layout() {
     return (
         <Drawer>
             <Drawer.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
+            <Drawer.Screen name="chat" options={{ title: 'Mindfulness Coach' }} />
             <Drawer.Screen name="index" options={{ headerRight: () => <Example />, title: 'Demo Overview' }} />
         </Drawer>
     );

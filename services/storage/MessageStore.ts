@@ -2,21 +2,20 @@
  * MessageStore - Persistent storage for chat messages using MMKV
  */
 
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 import { ChatMessage, ChatSession, ConversationStats } from '../../types';
 import { APP_CONFIG, STORAGE_KEYS } from '../../constants/config';
 import { MessageIndex, SessionIndex } from './types';
 
 export class MessageStore {
-  private storage: MMKV;
+  private storage: ReturnType<typeof createMMKV>;
   private messageIndexKey = 'message_index';
   private sessionIndexKey = 'session_index';
   private currentSessionId: string | null = null;
 
   constructor() {
-    this.storage = new MMKV({
+    this.storage = createMMKV({
       id: 'mindfulness-coach-storage',
-      encryptionKey: undefined, // Can be added for encryption if needed
     });
   }
 
