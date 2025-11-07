@@ -6,6 +6,21 @@
       "@/*": [
         "./*"
       ],
+      "@/services/*": [
+        "./services/*"
+      ],
+      "@/components/*": [
+        "./components/*"
+      ],
+      "@/hooks/*": [
+        "./hooks/*"
+      ],
+      "@/types/*": [
+        "./types/*"
+      ],
+      "@/constants/*": [
+        "./constants/*"
+      ],
       "tailwind.config": [
         "./tailwind.config.js"
       ]
