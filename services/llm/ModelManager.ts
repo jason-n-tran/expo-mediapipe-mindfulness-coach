@@ -181,7 +181,7 @@ export class ModelManager implements ModelManagerInterface {
   }
 
   /**
-   * Get cached model file path
+   * Get cached model name (used for initialization)
    */
   async getModelPath(): Promise<string> {
     try {
@@ -190,12 +190,19 @@ export class ModelManager implements ModelManagerInterface {
         throw new Error('Model is not available. Please download it first.');
       }
 
-      // Return the model name - expo-llm-mediapipe handles the actual path
+      // Return the model name - expo-llm-mediapipe uses model name, not path
       return MODEL_NAME;
     } catch (error) {
-      console.error('Error getting model path:', error);
+      console.error('Error getting model name:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get model name
+   */
+  getModelName(): string {
+    return MODEL_NAME;
   }
 
   /**

@@ -16,7 +16,7 @@ interface UseLLMReturn {
   isReady: boolean;
   error: string | null;
   capabilities: ModelCapabilities | null;
-  initialize: (modelPath: string) => Promise<void>;
+  initialize: (modelName: string) => Promise<void>;
   generateResponse: (
     messages: ChatMessage[],
     options: InferenceOptions,
@@ -35,14 +35,14 @@ export function useLLM(): UseLLMReturn {
   const isMountedRef = useRef(true);
 
   /**
-   * Initialize LLM service with model path
+   * Initialize LLM service with model name
    */
-  const initialize = useCallback(async (modelPath: string) => {
+  const initialize = useCallback(async (modelName: string) => {
     try {
       setInferenceState('initializing');
       setError(null);
       
-      await llmService.initialize(modelPath);
+      await llmService.initialize(modelName);
       
       if (isMountedRef.current) {
         const caps = llmService.getCapabilities();

@@ -379,7 +379,12 @@
     - Ensure all features work without network after model download
     - _Requirements: 6.1, 6.4_
 
-- [ ] 14. Add navigation and routing
+- [x] 14. Add navigation and routing
+
+
+
+
+
   - Update drawer navigation to include chat and settings screens
   - Set chat screen as default route
   - Add navigation between chat and settings

@@ -2,7 +2,11 @@
  * LLMService - Manages inference requests and streaming responses
  */
 
-import { LLMInference } from 'expo-llm-mediapipe';
+import ExpoLlmMediapipe, { 
+  PartialResponseEventPayload, 
+  ErrorResponseEventPayload,
+  NativeModuleSubscription 
+} from 'expo-llm-mediapipe';
 import { APP_CONFIG } from '@/constants/config';
 import { ChatMessage } from '@/types';
 import type { 
@@ -50,30 +54,37 @@ export class ModelNotInitializedError extends LLMError {
 }
 
 export class LLMService implements LLMServiceInterface {
-  private llmInference: LLMInference | null = null;
+  private modelHandle: number | null = null;
   private initialized: boolean = false;
-  private modelPath: string = '';
+  private modelName: string = '';
   private isGenerating: boolean = false;
   private abortController: AbortController | null = null;
   private maxRetries: number = 2;
   private retryDelay: number = 1000; // 1 second
+  private partialResponseListener: NativeModuleSubscription | null = null;
+  private errorResponseListener: NativeModuleSubscription | null = null;
+  private requestIdCounter: number = 0;
 
   /**
-   * Initialize the LLM with model path
+   * Initialize the LLM with model name
    */
-  async initialize(modelPath: string): Promise<void> {
+  async initialize(modelName: string): Promise<void> {
     try {
-      console.log('Initializing LLM Service with model:', modelPath);
+      console.log('Initializing LLM Service with model:', modelName);
       
-      // Store model path
-      this.modelPath = modelPath;
+      // Store model name
+      this.modelName = modelName;
 
-      // Create LLM inference instance
-      this.llmInference = new LLMInference({
-        modelPath,
-        maxTokens: APP_CONFIG.model.defaultMaxTokens,
-        temperature: APP_CONFIG.model.defaultTemperature,
-      });
+      // Create model handle from downloaded model
+      this.modelHandle = await ExpoLlmMediapipe.createModelFromDownloaded(
+        modelName,
+        APP_CONFIG.model.defaultMaxTokens,
+        40, // topK
+        APP_CONFIG.model.defaultTemperature,
+        0 // randomSeed
+      );
+
+      console.log('Model handle created:', this.modelHandle);
 
       // Mark as initialized
       this.initialized = true;
@@ -81,6 +92,7 @@ export class LLMService implements LLMServiceInterface {
     } catch (error) {
       console.error('Error initializing LLM Service:', error);
       this.initialized = false;
+      this.modelHandle = null;
       throw new LLMError(
         `Failed to initialize LLM Service: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'INITIALIZATION_FAILED'
@@ -92,7 +104,35 @@ export class LLMService implements LLMServiceInterface {
    * Check if service is ready
    */
   isReady(): boolean {
-    return this.initialized && this.llmInference !== null;
+    return this.initialized && this.modelHandle !== null;
+  }
+
+  /**
+   * Clean up resources
+   */
+  async cleanup(): Promise<void> {
+    try {
+      // Remove event listeners
+      if (this.partialResponseListener) {
+        this.partialResponseListener.remove();
+        this.partialResponseListener = null;
+      }
+      if (this.errorResponseListener) {
+        this.errorResponseListener.remove();
+        this.errorResponseListener = null;
+      }
+
+      // Release model handle
+      if (this.modelHandle !== null) {
+        await ExpoLlmMediapipe.releaseModel(this.modelHandle);
+        this.modelHandle = null;
+      }
+
+      this.initialized = false;
+      console.log('LLM Service cleaned up successfully');
+    } catch (error) {
+      console.error('Error cleaning up LLM Service:', error);
+    }
   }
 
   /**
@@ -179,45 +219,101 @@ export class LLMService implements LLMServiceInterface {
         this.stopGeneration();
       }, timeout);
 
-      // Configure inference options
-      const inferenceConfig = {
-        temperature: options.temperature ?? APP_CONFIG.model.defaultTemperature,
-        maxTokens: options.maxTokens ?? APP_CONFIG.model.defaultMaxTokens,
-        topP: options.topP ?? 0.9,
-      };
+      // Generate unique request ID
+      const requestId = ++this.requestIdCounter;
 
-      // Generate response with streaming
+      // Set up response promise
       let fullResponse = '';
-      let tokenBuffer: string[] = [];
-      const bufferSize = APP_CONFIG.performance.tokenBufferSize;
+      let resolveResponse: ((value: string) => void) | null = null;
+      let rejectResponse: ((error: Error) => void) | null = null;
+
+      const responsePromise = new Promise<string>((resolve, reject) => {
+        resolveResponse = resolve;
+        rejectResponse = reject;
+      });
+
+      let lastPartialUpdate = Date.now();
+      let completionCheckInterval: NodeJS.Timeout | null = null;
+
+      // Set up event listeners for this request
+      this.partialResponseListener = ExpoLlmMediapipe.addListener(
+        'onPartialResponse',
+        (event: PartialResponseEventPayload) => {
+          if (event.requestId !== requestId) return;
+
+          // Check if generation was stopped
+          if (this.abortController?.signal.aborted) {
+            resolveResponse?.(fullResponse);
+            return;
+          }
+
+          // Update last partial update time
+          lastPartialUpdate = Date.now();
+
+          // Emit the partial response
+          onToken(event.response);
+          fullResponse = event.response;
+        }
+      );
+
+      this.errorResponseListener = ExpoLlmMediapipe.addListener(
+        'onErrorResponse',
+        (event: ErrorResponseEventPayload) => {
+          if (event.requestId !== requestId) return;
+
+          const error = new LLMError(event.error, 'INFERENCE_ERROR');
+          
+          // Handle specific errors
+          if (event.error.includes('memory') || event.error.includes('OOM')) {
+            rejectResponse?.(new OutOfMemoryError());
+          } else {
+            rejectResponse?.(error);
+          }
+        }
+      );
 
       try {
-        // Use the LLM inference API
-        const stream = await this.llmInference!.generateStream(prompt, inferenceConfig);
+        // Start async generation
+        const success = await ExpoLlmMediapipe.generateResponseAsync(
+          this.modelHandle!,
+          requestId,
+          prompt
+        );
 
-        for await (const token of stream) {
-          // Check if generation was stopped
-          if (this.abortController.signal.aborted) {
-            break;
-          }
-
-          fullResponse += token;
-          tokenBuffer.push(token);
-
-          // Emit buffered tokens for smooth UI updates
-          if (tokenBuffer.length >= bufferSize) {
-            const bufferedText = tokenBuffer.join('');
-            onToken(bufferedText);
-            tokenBuffer = [];
-          }
+        if (!success) {
+          throw new LLMError('Failed to start generation', 'GENERATION_START_FAILED');
         }
 
-        // Emit remaining tokens
-        if (tokenBuffer.length > 0) {
-          const bufferedText = tokenBuffer.join('');
-          onToken(bufferedText);
+        // Check for completion periodically
+        // If no updates for 2 seconds, assume generation is complete
+        completionCheckInterval = setInterval(() => {
+          const timeSinceLastUpdate = Date.now() - lastPartialUpdate;
+          
+          if (timeSinceLastUpdate > 2000) {
+            // No updates for 2 seconds - assume complete
+            if (fullResponse) {
+              resolveResponse?.(fullResponse);
+            } else {
+              rejectResponse?.(new LLMError('Generation completed but no response received', 'NO_RESPONSE'));
+            }
+            
+            if (completionCheckInterval) {
+              clearInterval(completionCheckInterval);
+            }
+          }
+        }, 500);
+
+        // Wait for response
+        await responsePromise;
+        
+        if (completionCheckInterval) {
+          clearInterval(completionCheckInterval);
         }
       } catch (error) {
+        if (completionCheckInterval) {
+          clearInterval(completionCheckInterval);
+        }
+        
         // Handle specific errors
         if (error instanceof Error) {
           if (error.message.includes('memory') || error.message.includes('OOM')) {
@@ -227,6 +323,16 @@ export class LLMService implements LLMServiceInterface {
         throw error;
       } finally {
         clearTimeout(timeoutId);
+        
+        // Clean up listeners
+        if (this.partialResponseListener) {
+          this.partialResponseListener.remove();
+          this.partialResponseListener = null;
+        }
+        if (this.errorResponseListener) {
+          this.errorResponseListener.remove();
+          this.errorResponseListener = null;
+        }
       }
 
       return fullResponse;

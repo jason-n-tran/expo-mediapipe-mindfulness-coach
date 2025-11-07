@@ -4,7 +4,7 @@
  * conversation history loading, and LLM service initialization
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useModelManager } from './useModelManager';
 import { useMessageStore } from './useMessageStore';
 import { useLLM } from './useLLM';
@@ -28,6 +28,8 @@ interface UseAppInitializationReturn {
 export function useAppInitialization(): UseAppInitializationReturn {
   const [initializationState, setInitializationState] = useState<InitializationState>('checking');
   const [error, setError] = useState<string | null>(null);
+  const isInitializingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
   
   const { modelStatus, refreshStatus } = useModelManager();
   const { loadMessages } = useMessageStore();
@@ -37,6 +39,14 @@ export function useAppInitialization(): UseAppInitializationReturn {
    * Main initialization sequence
    */
   const initializeApp = useCallback(async () => {
+    // Prevent double initialization
+    if (isInitializingRef.current) {
+      console.log('Initialization already in progress, skipping...');
+      return;
+    }
+
+    isInitializingRef.current = true;
+
     try {
       setError(null);
       setInitializationState('checking');
@@ -47,18 +57,20 @@ export function useAppInitialization(): UseAppInitializationReturn {
       if (!modelStatus.isAvailable) {
         // Model is missing - user needs to download it
         setInitializationState('model-missing');
+        isInitializingRef.current = false;
         return;
       }
 
       // Step 2: Initialize LLM service with cached model
-      if (!llmReady) {
+      if (!llmReady && !hasInitializedRef.current) {
         setInitializationState('initializing-llm');
         
-        // Get model path from ModelManager
+        // Get model name from ModelManager
         const { modelManager } = await import('@/services/llm/ModelManager');
-        const modelPath = await modelManager.getModelPath();
+        const modelName = await modelManager.getModelPath(); // Returns model name
         
-        await initializeLLM(modelPath);
+        await initializeLLM(modelName);
+        hasInitializedRef.current = true;
       }
 
       // Step 3: Load conversation history
@@ -72,6 +84,8 @@ export function useAppInitialization(): UseAppInitializationReturn {
       setError(errorMessage);
       setInitializationState('error');
       console.error('App initialization error:', err);
+    } finally {
+      isInitializingRef.current = false;
     }
   }, [modelStatus.isAvailable, llmReady, refreshStatus, initializeLLM, loadMessages]);
 
