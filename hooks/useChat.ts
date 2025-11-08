@@ -48,8 +48,8 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
   const messageStoreHook = useMessageStore();
   const llmHook = useLLMContext();
 
-  // Local state
-  const [sessionId] = useState(initialSessionId || uuidv4());
+  // Local state - use a persistent session ID or null to show all messages
+  const [sessionId] = useState<string | null>(initialSessionId || null);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [promptOptions, setPromptOptions] = useState<PromptOptions>(
@@ -102,14 +102,16 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           role: 'user',
           content,
           timestamp: new Date(),
-          sessionId,
+          sessionId: sessionId || 'default',
           metadata,
         };
 
         await messageStoreHook.saveMessage(userMessage);
 
         // Prepare messages for inference (include conversation history)
-        const conversationMessages = [...messageStoreHook.messages, userMessage];
+        // Keep only the last 10 messages to avoid context overflow
+        const recentMessages = messageStoreHook.messages.slice(-10);
+        const conversationMessages = [...recentMessages, userMessage];
 
         // Build system prompt
         const systemPrompt = buildSystemPrompt();
@@ -126,7 +128,7 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           role: 'assistant',
           content: '',
           timestamp: new Date(),
-          sessionId,
+          sessionId: sessionId || 'default',
           metadata: {
             temperature: fullInferenceOptions.temperature,
           },
@@ -149,20 +151,43 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
 
         const inferenceTime = Date.now() - startTime;
 
-        // Update assistant message with complete response
-        assistantMessage.content = fullResponse;
-        assistantMessage.metadata = {
-          ...assistantMessage.metadata,
-          inferenceTime,
+        console.log('[useChat] Generation complete. Full response length:', fullResponse.length);
+        console.log('[useChat] Streaming content length:', streamingContentRef.current.length);
+        
+        // Create a new message object with the complete response
+        const completedAssistantMessage: ChatMessage = {
+          ...assistantMessage,
+          content: fullResponse,
+          metadata: {
+            ...assistantMessage.metadata,
+            inferenceTime,
+          },
         };
 
+        console.log('[useChat] Saving assistant message with content length:', completedAssistantMessage.content.length);
+        
         // Save complete assistant message
-        await messageStoreHook.saveMessage(assistantMessage);
+        await messageStoreHook.saveMessage(completedAssistantMessage);
+        
+        console.log('[useChat] Message saved successfully');
+
+        // Small delay to ensure the message store state update has propagated
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Debug: Log full contents of messageStore
+        console.log('[useChat] Full messageStore contents:', {
+          messages: messageStoreHook.messages,
+          isLoading: messageStoreHook.isLoading,
+          error: messageStoreHook.error,
+          totalMessages: messageStoreHook.messages.length,
+        });
+        
 
         // Clear streaming state
         setStreamingMessage('');
         streamingContentRef.current = '';
         currentAssistantMessageRef.current = null;
+        
+        console.log('[useChat] Streaming state cleared, message should now be visible in list');
       } catch (err) {
         console.error('Error sending message:', err);
         

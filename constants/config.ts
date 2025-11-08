@@ -9,7 +9,7 @@ export const APP_CONFIG = {
     downloadUrl: 'configured-by-expo-llm-mediapipe',
     maxContextTokens: 2048,
     defaultTemperature: 0.7,
-    defaultMaxTokens: 512,
+    defaultMaxTokens: 2048, // Increased to match maxContextTokens
   },
   storage: {
     messageRetentionDays: 90,
@@ -30,7 +30,7 @@ export const APP_CONFIG = {
 
 export const DEFAULT_INFERENCE_SETTINGS = {
   temperature: 0.7,
-  maxTokens: 512,
+  maxTokens: 2048,
   topP: 0.9,
   contextWindowSize: 2048,
   streamingEnabled: true,

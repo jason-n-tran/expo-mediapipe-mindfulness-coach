@@ -51,10 +51,20 @@ export function useMessageStore(): UseMessageStoreReturn {
   const saveMessage = useCallback(async (message: ChatMessage) => {
     try {
       setError(null);
+      console.log('[useMessageStore] Saving message:', { 
+        id: message.id, 
+        role: message.role, 
+        contentLength: message.content.length 
+      });
+      
       await messageStore.saveMessage(message);
       
       // Add message to local state immediately for optimistic update
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        const updated = [...prev, message];
+        console.log('[useMessageStore] State updated. New count:', updated.length);
+        return updated;
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save message';
       setError(errorMessage);

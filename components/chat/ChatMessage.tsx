@@ -37,7 +37,7 @@ export function ChatMessage({
 
   return (
     <AnimatedPressable
-      entering={isUser ? FadeInDown.duration(300) : FadeInUp.duration(300)}
+      entering={FadeInUp.duration(300)}
       onLongPress={onLongPress}
       className={`mb-3 px-4 ${isUser ? 'items-end' : 'items-start'}`}
     >

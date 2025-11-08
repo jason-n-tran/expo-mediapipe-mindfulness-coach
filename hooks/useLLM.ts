@@ -171,15 +171,8 @@ export function useLLM(): UseLLMReturn {
         console.log('[useLLM] Request ID:', requestId);
         
         let fullResponse = '';
-        let resolveGeneration: ((value: string) => void) | null = null;
-        let rejectGeneration: ((error: Error) => void) | null = null;
         
-        const generationPromise = new Promise<string>((resolve, reject) => {
-          resolveGeneration = resolve;
-          rejectGeneration = reject;
-        });
-        
-        // Set up event listeners
+        // Set up event listeners BEFORE starting generation
         partialListenerRef.current = ExpoLlmMediapipe.addListener(
           'onPartialResponse',
           (event: PartialResponseEventPayload) => {
@@ -189,8 +182,13 @@ export function useLLM(): UseLLMReturn {
               return;
             }
             
-            console.log('[useLLM] Partial response length:', event.response.length);
-            fullResponse = event.response;
+            // The native module sends individual chunks, not cumulative text
+            console.log('[useLLM] Received chunk:', event.response.length, 'chars');
+            
+            // Append the new chunk to full response
+            fullResponse += event.response;
+            
+            // Pass the chunk directly to the callback
             onToken(event.response);
           }
         );
@@ -201,60 +199,19 @@ export function useLLM(): UseLLMReturn {
             if (event.requestId !== requestId || event.handle !== modelHandleRef.current) return;
             
             console.error('[useLLM] Error response:', event.error);
-            const error = new Error(event.error);
-            rejectGeneration?.(error);
           }
         );
         
-        // Start async generation
-        console.log('[useLLM] Starting async generation...');
-        const success = await ExpoLlmMediapipe.generateResponseAsync(
+        // Start async generation - this Promise resolves when generation is COMPLETE
+        console.log('[useLLM] Starting generation...');
+        await ExpoLlmMediapipe.generateResponseAsync(
           modelHandleRef.current,
           requestId,
           prompt
         );
         
-        if (!success) {
-          throw new Error('Failed to start generation');
-        }
-        
-        console.log('[useLLM] Generation started, waiting for completion...');
-        
-        // Set up completion detection (no updates for 2 seconds = complete)
-        let lastUpdateTime = Date.now();
-        let lastResponseLength = 0;
-        
-        const checkCompletion = setInterval(() => {
-          const timeSinceUpdate = Date.now() - lastUpdateTime;
-          const responseChanged = fullResponse.length !== lastResponseLength;
-          
-          if (responseChanged) {
-            lastUpdateTime = Date.now();
-            lastResponseLength = fullResponse.length;
-          } else if (timeSinceUpdate > 2000 && fullResponse.length > 0) {
-            // No updates for 2 seconds and we have a response - assume complete
-            console.log('[useLLM] Generation complete (no updates for 2s)');
-            clearInterval(checkCompletion);
-            resolveGeneration?.(fullResponse);
-          }
-        }, 500);
-        
-        // Also set a maximum timeout
-        const maxTimeout = setTimeout(() => {
-          console.log('[useLLM] Generation timeout reached');
-          clearInterval(checkCompletion);
-          if (fullResponse) {
-            resolveGeneration?.(fullResponse);
-          } else {
-            rejectGeneration?.(new Error('Generation timed out with no response'));
-          }
-        }, options.contextWindow || 960000);
-        
-        // Wait for generation to complete
-        const result = await generationPromise;
-        
-        clearInterval(checkCompletion);
-        clearTimeout(maxTimeout);
+        console.log('[useLLM] Generation complete, total length:', fullResponse.length);
+        console.log('[useLLM] Returning response:', fullResponse);
         
         // Clean up listeners
         if (partialListenerRef.current) {
@@ -267,8 +224,7 @@ export function useLLM(): UseLLMReturn {
         }
         
         setInferenceState('idle');
-        console.log('[useLLM] Generation complete, response length:', result.length);
-        return result;
+        return fullResponse;
       } catch (err) {
         // Clean up listeners on error
         if (partialListenerRef.current) {

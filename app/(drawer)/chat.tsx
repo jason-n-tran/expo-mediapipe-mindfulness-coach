@@ -42,31 +42,40 @@ export default function ChatScreen() {
     console.log('[ChatScreen] isReady changed:', isReady);
   }, [isReady]);
 
+  // Debug: Log when messages change
+  useEffect(() => {
+    console.log('[ChatScreen] Messages changed. Count:', messages.length);
+    console.log('[ChatScreen] Assistant message count:', messages.filter(m => m.role === 'assistant').length);
+    console.log('[ChatScreen] User message count:', messages.filter(m => m.role === 'user').length);
+    console.log('[ChatScreen] Last 3 messages:', messages.slice(-3).map(m => ({ 
+      id: m.id, 
+      role: m.role, 
+      contentLength: m.content.length,
+      content: m.content.substring(0, 30) 
+    })));
+  }, [messages]);
+
   const flatListRef = useRef<FlatList>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-scroll to bottom when new messages arrive (with debouncing)
+  // Auto-scroll to bottom when new messages arrive
+  // useEffect(() => {
+  //   if (!isUserScrolling && messages.length > 0) {
+  //     // Small delay to ensure render is complete
+  //     setTimeout(() => {
+  //       flatListRef.current?.scrollToEnd({ animated: true });
+  //     }, 100);
+  //   }
+  // }, [messages.length, isUserScrolling]);
+
+  // Auto-scroll during streaming
   useEffect(() => {
-    if (!isUserScrolling && (messages.length > 0 || streamingMessage)) {
-      // Clear any existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-
-      // Debounce scroll during streaming for performance
-      scrollTimeoutRef.current = setTimeout(() => {
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-      }, isGenerating ? 300 : 100);
+    if (streamingMessage && !isUserScrolling) {
+      flatListRef.current?.scrollToEnd({ animated: false });
     }
-
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [messages.length, streamingMessage, isGenerating, isUserScrolling]);
+  }, [streamingMessage, isUserScrolling]);
 
   // Handle pull-to-refresh
   const handleRefresh = useCallback(async () => {
@@ -110,6 +119,11 @@ export default function ChatScreen() {
 
   // Render individual message
   const renderMessage = useCallback(({ item }: { item: ChatMessageType }) => {
+    console.log('[ChatScreen] Rendering message:', { 
+      id: item.id, 
+      role: item.role, 
+      contentLength: item.content.length 
+    });
     return <ChatMessage message={item} showTimestamp={false} />;
   }, []);
 
@@ -188,19 +202,19 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {/* Messages List - Inverted for bottom-to-top flow */}
+        {/* Messages List */}
         <FlatList
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
-          inverted
           contentContainerStyle={{
             paddingTop: SPACING.md,
+            paddingBottom: SPACING.md,
             flexGrow: 1,
           }}
           ListEmptyComponent={renderEmptyState}
-          ListHeaderComponent={
+          ListFooterComponent={
             <>
               {renderStreamingMessage()}
               <TypingIndicator visible={isGenerating && !streamingMessage} />
@@ -216,10 +230,6 @@ export default function ChatScreen() {
           onScrollBeginDrag={handleScrollBeginDrag}
           onScrollEndDrag={handleScrollEndDrag}
           showsVerticalScrollIndicator={true}
-          maintainVisibleContentPosition={{
-            minIndexForVisible: 0,
-            autoscrollToTopThreshold: 10,
-          }}
         />
 
         {/* Error Display */}
