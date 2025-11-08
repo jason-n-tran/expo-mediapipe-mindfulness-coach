@@ -7,10 +7,10 @@
  */
 
 import 'react-native-get-random-values';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useMessageStore } from './useMessageStore';
-import { useLLM } from './useLLM';
+import { useLLMContext } from '@/contexts/LLMContext';
 import { promptBuilder } from '@/services/llm/PromptBuilder';
 import type { ChatMessage, MindfulnessTopic, QuickAction } from '@/types';
 import type { InferenceOptions, PromptOptions } from '@/services/llm/types';
@@ -25,6 +25,7 @@ interface UseChatReturn {
   messages: ChatMessage[];
   isGenerating: boolean;
   isLoading: boolean;
+  isReady: boolean;
   error: string | null;
   streamingMessage: string;
   sendMessage: (content: string, metadata?: ChatMessage['metadata']) => Promise<void>;
@@ -45,7 +46,7 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
 
   // Initialize hooks
   const messageStoreHook = useMessageStore();
-  const llmHook = useLLM();
+  const llmHook = useLLMContext();
 
   // Local state
   const [sessionId] = useState(initialSessionId || uuidv4());
@@ -74,7 +75,15 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
    */
   const sendMessage = useCallback(
     async (content: string, metadata?: ChatMessage['metadata']) => {
+      console.log('[useChat] sendMessage called');
+      console.log('[useChat] llmHook:', llmHook);
+      console.log('[useChat] llmHook.isReady:', llmHook.isReady);
+      console.log('[useChat] llmHook.inferenceState:', llmHook.inferenceState);
+      console.log('[useChat] llmHook.error:', llmHook.error);
+      
+      // Check isReady at call time, not at callback creation time
       if (!llmHook.isReady) {
+        console.error('[useChat] LLM not ready!');
         throw new Error('LLM is not ready. Please initialize it first.');
       }
 
@@ -251,10 +260,19 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
   // Combine errors
   const error = messageStoreHook.error || llmHook.error;
 
+  // Extract isReady to a separate variable to ensure it triggers re-renders
+  const llmIsReady = llmHook.isReady;
+  
+  // Debug: Log when llmIsReady changes
+  useEffect(() => {
+    console.log('[useChat] llmIsReady changed:', llmIsReady);
+  }, [llmIsReady]);
+
   return {
     messages: messageStoreHook.messages,
     isGenerating,
     isLoading,
+    isReady: llmIsReady,
     error,
     streamingMessage,
     sendMessage,

@@ -4,7 +4,8 @@
 
 export const APP_CONFIG = {
   model: {
-    name: 'gemma-1.1-2b-it-cpu-int4.bin', // Using working model for now
+    name: 'gemma-3n-E4B-it-int4.task', // Using working model for now
+    // name: 'gemma3-1B-it-int4.task', // Using working model for now
     downloadUrl: 'configured-by-expo-llm-mediapipe',
     maxContextTokens: 2048,
     defaultTemperature: 0.7,

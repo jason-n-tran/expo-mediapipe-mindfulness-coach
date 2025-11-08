@@ -50,18 +50,25 @@ export function useModelManager(): UseModelManagerReturn {
    * Download model with progress tracking
    */
   const downloadModel = useCallback(async () => {
+    console.log('[useModelManager] downloadModel called');
     try {
+      console.log('[useModelManager] Setting loading state...');
       setIsLoading(true);
       setError(null);
       setDownloadProgress(null);
 
       // Update status to show downloading
+      console.log('[useModelManager] Setting isDownloading to true');
       setModelStatus(prev => ({
         ...prev,
         isDownloading: true,
       }));
 
+      console.log('[useModelManager] Calling modelManager.downloadModel...');
+      let progressUpdateCount = 0;
       await modelManager.downloadModel((progress) => {
+        progressUpdateCount++;
+        console.log(`[useModelManager] Progress update #${progressUpdateCount}:`, JSON.stringify(progress));
         setDownloadProgress(progress);
         setModelStatus(prev => ({
           ...prev,
@@ -70,13 +77,16 @@ export function useModelManager(): UseModelManagerReturn {
         }));
       });
 
+      console.log('[useModelManager] Download completed, refreshing status...');
       // Download complete - refresh status
       await refreshStatus();
       setDownloadProgress(null);
+      console.log('[useModelManager] Status refreshed successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to download model';
+      console.error('[useModelManager] Download error:', err);
+      console.error('[useModelManager] Error message:', errorMessage);
       setError(errorMessage);
-      console.error('Error downloading model:', err);
       
       // Reset downloading state
       setModelStatus(prev => ({
@@ -85,6 +95,7 @@ export function useModelManager(): UseModelManagerReturn {
       }));
       setDownloadProgress(null);
     } finally {
+      console.log('[useModelManager] Setting loading to false');
       setIsLoading(false);
     }
   }, [refreshStatus]);

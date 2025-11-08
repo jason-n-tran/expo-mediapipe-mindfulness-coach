@@ -17,7 +17,7 @@ import { STORAGE_KEYS } from '@/constants/config';
 const storage = createMMKV();
 
 export default function ModelSetupScreen() {
-  const { modelStatus, downloadModel, error } = useModelManager();
+  const { modelStatus, downloadProgress, downloadModel, error } = useModelManager();
   const { isOffline } = useNetworkStatus();
   const [hasStartedDownload, setHasStartedDownload] = useState(false);
   const [isFirstLaunch, setIsFirstLaunch] = useState(false);
@@ -41,12 +41,36 @@ export default function ModelSetupScreen() {
   }, []);
 
   const handleStartDownload = async () => {
+    console.log('[ModelSetup] ===== STARTING DOWNLOAD =====');
+    console.log('[ModelSetup] Current modelStatus:', JSON.stringify(modelStatus));
+    console.log('[ModelSetup] Current downloadProgress:', JSON.stringify(downloadProgress));
+    console.log('[ModelSetup] Current error:', error);
+    
     setHasStartedDownload(true);
+    console.log('[ModelSetup] hasStartedDownload set to true');
+    
     try {
+      console.log('[ModelSetup] Calling downloadModel()...');
       await downloadModel();
+      console.log('[ModelSetup] ===== DOWNLOAD COMPLETED SUCCESSFULLY =====');
     } catch (err) {
-      console.error('Download failed:', err);
+      console.error('[ModelSetup] ===== DOWNLOAD FAILED =====');
+      console.error('[ModelSetup] Error:', err);
+      console.error('[ModelSetup] Error type:', err instanceof Error ? err.constructor.name : typeof err);
+      console.error('[ModelSetup] Error message:', err instanceof Error ? err.message : String(err));
+      setHasStartedDownload(false);
+      console.log('[ModelSetup] hasStartedDownload set to false after error');
     }
+  };
+
+  const handleCancelDownload = () => {
+    console.log('[ModelSetup] Cancelling download...');
+    setHasStartedDownload(false);
+  };
+
+  const handleRetryDownload = async () => {
+    console.log('[ModelSetup] Retrying download...');
+    await handleStartDownload();
   };
 
   // Show download progress if downloading
@@ -65,13 +89,12 @@ export default function ModelSetupScreen() {
             </View>
           )}
           <ModelDownload
-            onComplete={() => {
-              // Navigation will be handled by the initialization hook
-              console.log('Model download complete');
-            }}
-            onCancel={() => {
-              setHasStartedDownload(false);
-            }}
+            progress={downloadProgress}
+            isDownloading={modelStatus.isDownloading}
+            error={error}
+            onCancel={handleCancelDownload}
+            onRetry={handleRetryDownload}
+            onStart={handleStartDownload}
           />
         </View>
       </SafeAreaView>

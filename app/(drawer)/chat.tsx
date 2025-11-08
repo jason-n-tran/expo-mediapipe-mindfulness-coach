@@ -29,12 +29,18 @@ export default function ChatScreen() {
     messages,
     isGenerating,
     isLoading,
+    isReady,
     error,
     streamingMessage,
     sendMessage,
     sendQuickAction,
     stopGeneration,
   } = useChat();
+
+  // Debug: Log when isReady changes
+  useEffect(() => {
+    console.log('[ChatScreen] isReady changed:', isReady);
+  }, [isReady]);
 
   const flatListRef = useRef<FlatList>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -228,8 +234,8 @@ export default function ChatScreen() {
         {/* Chat Input */}
         <ChatInput
           onSend={handleSendMessage}
-          disabled={isGenerating}
-          placeholder="Share what's on your mind..."
+          disabled={isGenerating || !isReady}
+          placeholder={isReady ? "Share what's on your mind..." : "Initializing..."}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

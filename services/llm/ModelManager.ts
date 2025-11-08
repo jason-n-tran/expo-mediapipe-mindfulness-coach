@@ -20,7 +20,10 @@ const storage = createMMKV({
 // Using the model name from config (now set to a working model)
 const MODEL_NAME = APP_CONFIG.model.name;
 // Using a VERIFIED working Gemma model URL
-const MODEL_URL = 'https://huggingface.co/t-ghosh/gemma-tflite/resolve/main/gemma-1.1-2b-it-cpu-int4.bin';
+const MODEL_URL = 'https://huggingface.co/thismart/gemma-3n-E4B/resolve/main/gemma-3n-E4B-it-int4.task';
+// const MODEL_URL = 'https://huggingface.co/t-ghosh/gemma-tflite/resolve/main/gemma3-1B-it-int4.task';
+// Expected model size in bytes (approximately 2.3GB based on the download logs)
+const EXPECTED_MODEL_SIZE = 4393618678; // 2.3GB
 
 // Error types
 export class ModelError extends Error {
@@ -59,6 +62,7 @@ export class ModelManager implements ModelManagerInterface {
   private currentDownloadProgress: DownloadProgress | null = null;
   private downloadPromiseResolve: (() => void) | null = null;
   private downloadPromiseReject: ((error: Error) => void) | null = null;
+  private lastLoggedProgress: number = -1;
 
   constructor() {
     // Set up download progress listener
@@ -70,55 +74,78 @@ export class ModelManager implements ModelManagerInterface {
    */
   private setupDownloadListener(): void {
     if (this.downloadProgressListener) {
+      console.log('[ModelManager] Download listener already set up');
       return; // Already set up
     }
 
+    console.log('[ModelManager] Setting up download progress listener');
     this.downloadProgressListener = ExpoLlmMediapipe.addListener(
       'downloadProgress',
       (event: DownloadProgressEvent) => {
-        if (event.modelName !== MODEL_NAME) return;
+        if (event.modelName !== MODEL_NAME) {
+          return;
+        }
 
         if (event.status === 'downloading') {
-          const progress = event.progress ?? 0;
+          const bytesDownloaded = event.bytesDownloaded || 0;
+          const totalBytes = event.totalBytes > 0 ? event.totalBytes : EXPECTED_MODEL_SIZE;
+          
+          // Calculate percentage based on bytes downloaded
+          const percentage = Math.min((bytesDownloaded / totalBytes) * 100, 99.9);
+          
+          // Only log every 5% to reduce spam
+          const progressMilestone = Math.floor(percentage / 5) * 5;
+          if (progressMilestone > this.lastLoggedProgress) {
+            console.log(`[ModelManager] Download progress: ${percentage.toFixed(1)}% (${(bytesDownloaded / 1024 / 1024).toFixed(0)}MB / ${(totalBytes / 1024 / 1024).toFixed(0)}MB)`);
+            this.lastLoggedProgress = progressMilestone;
+          }
+          
           this.currentDownloadProgress = {
-            bytesDownloaded: 0, // Not provided by the event
-            totalBytes: 0, // Not provided by the event
-            percentage: progress * 100,
+            bytesDownloaded,
+            totalBytes,
+            percentage,
             estimatedTimeRemaining: undefined,
           };
         } else if (event.status === 'completed') {
+          console.log('[ModelManager] Download completed!');
+          const bytesDownloaded = event.bytesDownloaded || EXPECTED_MODEL_SIZE;
           this.currentDownloadProgress = {
-            bytesDownloaded: 0,
-            totalBytes: 0,
+            bytesDownloaded,
+            totalBytes: bytesDownloaded,
             percentage: 100,
             estimatedTimeRemaining: 0,
           };
           
           // Store metadata
           this.storeModelMetadata().catch(err => {
-            console.error('Failed to store metadata:', err);
+            console.error('[ModelManager] Failed to store metadata:', err);
           });
 
           // Resolve download promise
           if (this.downloadPromiseResolve) {
+            console.log('[ModelManager] Resolving download promise');
             this.downloadPromiseResolve();
             this.downloadPromiseResolve = null;
             this.downloadPromiseReject = null;
           }
         } else if (event.status === 'error') {
+          console.error('[ModelManager] Download error:', event.error);
           const error = new DownloadFailedError(event.error || 'Unknown download error');
           
           // Reject download promise
           if (this.downloadPromiseReject) {
+            console.log('[ModelManager] Rejecting download promise with error');
             this.downloadPromiseReject(error);
             this.downloadPromiseResolve = null;
             this.downloadPromiseReject = null;
           }
         } else if (event.status === 'cancelled') {
+          console.log('[ModelManager] Download cancelled');
           const error = new DownloadFailedError('Download was cancelled');
           
           // Reject download promise
           if (this.downloadPromiseReject) {
+            console.log('[ModelManager] Rejecting download promise (cancelled)');
             this.downloadPromiseReject(error);
             this.downloadPromiseResolve = null;
             this.downloadPromiseReject = null;
@@ -126,6 +153,7 @@ export class ModelManager implements ModelManagerInterface {
         }
       }
     );
+    console.log('[ModelManager] Download listener setup complete');
   }
 
   /**
@@ -209,21 +237,32 @@ export class ModelManager implements ModelManagerInterface {
    * Download model with progress tracking
    */
   async downloadModel(onProgress: (progress: DownloadProgress) => void): Promise<void> {
+    console.log('[ModelManager] downloadModel called');
+    console.log('[ModelManager] Model name:', MODEL_NAME);
+    console.log('[ModelManager] Model URL:', MODEL_URL);
+    
     // Check if already downloaded
+    console.log('[ModelManager] Checking if model is already available...');
     const isAvailable = await this.isModelAvailable();
+    console.log('[ModelManager] Model available:', isAvailable);
+    
     if (isAvailable) {
-      console.log('Model already downloaded');
+      console.log('[ModelManager] Model already downloaded, skipping');
       return;
     }
 
     try {
+      console.log('[ModelManager] Starting download process...');
+      
       // Create a promise that will be resolved/rejected by the listener
       const downloadPromise = new Promise<void>((resolve, reject) => {
+        console.log('[ModelManager] Creating download promise');
         this.downloadPromiseResolve = resolve;
         this.downloadPromiseReject = reject;
       });
 
       // Set up progress callback interval
+      console.log('[ModelManager] Setting up progress callback interval');
       const progressInterval = setInterval(() => {
         if (this.currentDownloadProgress) {
           onProgress(this.currentDownloadProgress);
@@ -236,15 +275,23 @@ export class ModelManager implements ModelManagerInterface {
         timeout: 300000 // 5 minutes timeout
       };
       
-      await ExpoLlmMediapipe.downloadModel(MODEL_URL, MODEL_NAME, options);
+      console.log('[ModelManager] Calling ExpoLlmMediapipe.downloadModel...');
+      console.log('[ModelManager] Download options:', JSON.stringify(options));
+      
+      const downloadResult = await ExpoLlmMediapipe.downloadModel(MODEL_URL, MODEL_NAME, options);
+      console.log('[ModelManager] downloadModel call returned:', downloadResult);
 
       // Wait for download to complete (listener will resolve/reject)
+      console.log('[ModelManager] Waiting for download promise to resolve...');
       await downloadPromise;
+      console.log('[ModelManager] Download promise resolved!');
 
       // Clear progress interval
       clearInterval(progressInterval);
+      console.log('[ModelManager] Progress interval cleared');
 
       // Final progress update
+      console.log('[ModelManager] Sending final progress update');
       onProgress({
         bytesDownloaded: 0,
         totalBytes: 0,
@@ -252,13 +299,18 @@ export class ModelManager implements ModelManagerInterface {
         estimatedTimeRemaining: 0,
       });
 
-      console.log('Model download completed successfully');
+      console.log('[ModelManager] Model download completed successfully');
     } catch (error) {
-      console.error('Error downloading model:', error);
+      console.error('[ModelManager] Error downloading model:', error);
+      console.error('[ModelManager] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('[ModelManager] Error message:', error instanceof Error ? error.message : String(error));
+      console.error('[ModelManager] Error stack:', error instanceof Error ? error.stack : 'N/A');
+      
       throw error instanceof ModelError 
         ? error 
         : new DownloadFailedError((error as Error).message);
     } finally {
+      console.log('[ModelManager] Download process finished, cleaning up');
       this.currentDownloadProgress = null;
     }
   }

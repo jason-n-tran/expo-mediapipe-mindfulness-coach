@@ -1,12 +1,17 @@
 /**
  * useLLM Hook
- * Wraps LLMService with React state
- * Manages inference state (idle, generating, error)
- * Provides generateResponse function with streaming support
+ * Custom implementation using expo-llm-mediapipe native module directly
+ * Bypasses the broken useLLM hook to avoid crashes
  */
 
-import { useState, useCallback, useRef } from 'react';
-import { llmService } from '@/services/llm/LLMService';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import ExpoLlmMediapipe from 'expo-llm-mediapipe';
+import type { 
+  PartialResponseEventPayload, 
+  ErrorResponseEventPayload,
+  NativeModuleSubscription 
+} from 'expo-llm-mediapipe';
+import { APP_CONFIG } from '@/constants/config';
 import type { ChatMessage, InferenceOptions, ModelCapabilities } from '@/types';
 
 type InferenceState = 'idle' | 'initializing' | 'generating' | 'error';
@@ -27,45 +32,118 @@ interface UseLLMReturn {
 
 export function useLLM(): UseLLMReturn {
   const [inferenceState, setInferenceState] = useState<InferenceState>('idle');
-  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [capabilities, setCapabilities] = useState<ModelCapabilities | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [capabilities] = useState<ModelCapabilities>({
+    maxContextLength: APP_CONFIG.model.maxContextTokens,
+    supportsStreaming: true,
+    modelName: APP_CONFIG.model.name,
+    version: '1.0.0',
+  });
   
-  // Use ref to track if component is mounted
-  const isMountedRef = useRef(true);
+  const modelHandleRef = useRef<number | null>(null);
+  const requestIdCounterRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const partialListenerRef = useRef<NativeModuleSubscription | null>(null);
+  const errorListenerRef = useRef<NativeModuleSubscription | null>(null);
+
+  // Log state changes
+  useEffect(() => {
+    console.log('[useLLM] State changed - isReady:', isReady, 'inferenceState:', inferenceState);
+  }, [isReady, inferenceState]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (modelHandleRef.current !== null) {
+        console.log('[useLLM] Cleaning up model handle:', modelHandleRef.current);
+        ExpoLlmMediapipe.releaseModel(modelHandleRef.current).catch(err => 
+          console.error('[useLLM] Error releasing model:', err)
+        );
+      }
+      if (partialListenerRef.current) {
+        partialListenerRef.current.remove();
+      }
+      if (errorListenerRef.current) {
+        errorListenerRef.current.remove();
+      }
+    };
+  }, []);
 
   /**
-   * Initialize LLM service with model name
+   * Initialize LLM with model name - Direct native module implementation
    */
-  const initialize = useCallback(async (modelName: string) => {
+  const initialize = useCallback(async (name: string) => {
+    console.log('[useLLM] === INITIALIZE START ===');
+    console.log('[useLLM] Model name:', name);
+    
     try {
       setInferenceState('initializing');
       setError(null);
       
-      await llmService.initialize(modelName);
+      // Check if model is downloaded
+      console.log('[useLLM] Checking if model is downloaded...');
+      const isDownloaded = await ExpoLlmMediapipe.isModelDownloaded(name);
+      console.log('[useLLM] Model downloaded:', isDownloaded);
       
-      if (isMountedRef.current) {
-        const caps = llmService.getCapabilities();
-        setCapabilities(caps);
+      if (!isDownloaded) {
+        throw new Error('Model not downloaded. Please download the model first.');
+      }
+      
+      // Create model handle directly using native module
+      console.log('[useLLM] Creating model handle from downloaded model...');
+      console.log('[useLLM] Parameters:', {
+        modelName: name,
+        maxTokens: APP_CONFIG.model.defaultMaxTokens,
+        topK: 40,
+        temperature: APP_CONFIG.model.defaultTemperature,
+        randomSeed: 0
+      });
+      
+      try {
+        const handle = await ExpoLlmMediapipe.createModelFromDownloaded(
+          name,
+          APP_CONFIG.model.defaultMaxTokens,
+          40, // topK
+          APP_CONFIG.model.defaultTemperature,
+          0 // randomSeed
+        );
+        
+        console.log('[useLLM] Model handle created:', handle);
+        modelHandleRef.current = handle;
         setIsReady(true);
         setInferenceState('idle');
+        console.log('[useLLM] === INITIALIZE SUCCESS ===');
+      } catch (createError) {
+        console.error('[useLLM] Error creating model handle:', createError);
+        console.error('[useLLM] This might be a native crash - trying alternative approach...');
+        
+        // If createModelFromDownloaded fails, the model might be corrupted
+        // Try to delete and re-download
+        console.log('[useLLM] Deleting potentially corrupted model...');
+        try {
+          await ExpoLlmMediapipe.deleteDownloadedModel(name);
+          console.log('[useLLM] Model deleted');
+        } catch (deleteError) {
+          console.error('[useLLM] Error deleting model:', deleteError);
+        }
+        
+        throw new Error(`Failed to create model handle. The model file may be corrupted. Please re-download the model. Error: ${createError instanceof Error ? createError.message : String(createError)}`);
       }
     } catch (err) {
+      console.error('[useLLM] === INITIALIZE FAILED ===');
+      console.error('[useLLM] Error:', err);
+      
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize LLM';
-      
-      if (isMountedRef.current) {
-        setError(errorMessage);
-        setInferenceState('error');
-        setIsReady(false);
-      }
-      
-      console.error('Error initializing LLM:', err);
+      setError(errorMessage);
+      setInferenceState('error');
+      setIsReady(false);
       throw err;
     }
   }, []);
 
   /**
-   * Generate response with streaming support
+   * Generate response with streaming support - Direct native module implementation
    */
   const generateResponse = useCallback(
     async (
@@ -73,34 +151,139 @@ export function useLLM(): UseLLMReturn {
       options: InferenceOptions,
       onToken: (token: string) => void
     ): Promise<string> => {
+      if (modelHandleRef.current === null) {
+        throw new Error('Model not initialized. Call initialize() first.');
+      }
+
       try {
         setInferenceState('generating');
         setError(null);
 
-        const response = await llmService.generateResponse(
-          messages,
-          options,
-          (token) => {
-            if (isMountedRef.current) {
-              onToken(token);
+        // Prepare prompt
+        const prompt = preparePrompt(messages, options);
+        console.log('[useLLM] Generating response for prompt length:', prompt.length);
+        
+        // Create abort controller
+        abortControllerRef.current = new AbortController();
+        
+        // Generate unique request ID
+        const requestId = ++requestIdCounterRef.current;
+        console.log('[useLLM] Request ID:', requestId);
+        
+        let fullResponse = '';
+        let resolveGeneration: ((value: string) => void) | null = null;
+        let rejectGeneration: ((error: Error) => void) | null = null;
+        
+        const generationPromise = new Promise<string>((resolve, reject) => {
+          resolveGeneration = resolve;
+          rejectGeneration = reject;
+        });
+        
+        // Set up event listeners
+        partialListenerRef.current = ExpoLlmMediapipe.addListener(
+          'onPartialResponse',
+          (event: PartialResponseEventPayload) => {
+            if (event.requestId !== requestId || event.handle !== modelHandleRef.current) return;
+            
+            if (abortControllerRef.current?.signal.aborted) {
+              return;
             }
+            
+            console.log('[useLLM] Partial response length:', event.response.length);
+            fullResponse = event.response;
+            onToken(event.response);
           }
         );
-
-        if (isMountedRef.current) {
-          setInferenceState('idle');
+        
+        errorListenerRef.current = ExpoLlmMediapipe.addListener(
+          'onErrorResponse',
+          (event: ErrorResponseEventPayload) => {
+            if (event.requestId !== requestId || event.handle !== modelHandleRef.current) return;
+            
+            console.error('[useLLM] Error response:', event.error);
+            const error = new Error(event.error);
+            rejectGeneration?.(error);
+          }
+        );
+        
+        // Start async generation
+        console.log('[useLLM] Starting async generation...');
+        const success = await ExpoLlmMediapipe.generateResponseAsync(
+          modelHandleRef.current,
+          requestId,
+          prompt
+        );
+        
+        if (!success) {
+          throw new Error('Failed to start generation');
         }
-
-        return response;
+        
+        console.log('[useLLM] Generation started, waiting for completion...');
+        
+        // Set up completion detection (no updates for 2 seconds = complete)
+        let lastUpdateTime = Date.now();
+        let lastResponseLength = 0;
+        
+        const checkCompletion = setInterval(() => {
+          const timeSinceUpdate = Date.now() - lastUpdateTime;
+          const responseChanged = fullResponse.length !== lastResponseLength;
+          
+          if (responseChanged) {
+            lastUpdateTime = Date.now();
+            lastResponseLength = fullResponse.length;
+          } else if (timeSinceUpdate > 2000 && fullResponse.length > 0) {
+            // No updates for 2 seconds and we have a response - assume complete
+            console.log('[useLLM] Generation complete (no updates for 2s)');
+            clearInterval(checkCompletion);
+            resolveGeneration?.(fullResponse);
+          }
+        }, 500);
+        
+        // Also set a maximum timeout
+        const maxTimeout = setTimeout(() => {
+          console.log('[useLLM] Generation timeout reached');
+          clearInterval(checkCompletion);
+          if (fullResponse) {
+            resolveGeneration?.(fullResponse);
+          } else {
+            rejectGeneration?.(new Error('Generation timed out with no response'));
+          }
+        }, options.contextWindow || 960000);
+        
+        // Wait for generation to complete
+        const result = await generationPromise;
+        
+        clearInterval(checkCompletion);
+        clearTimeout(maxTimeout);
+        
+        // Clean up listeners
+        if (partialListenerRef.current) {
+          partialListenerRef.current.remove();
+          partialListenerRef.current = null;
+        }
+        if (errorListenerRef.current) {
+          errorListenerRef.current.remove();
+          errorListenerRef.current = null;
+        }
+        
+        setInferenceState('idle');
+        console.log('[useLLM] Generation complete, response length:', result.length);
+        return result;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to generate response';
-
-        if (isMountedRef.current) {
-          setError(errorMessage);
-          setInferenceState('error');
+        // Clean up listeners on error
+        if (partialListenerRef.current) {
+          partialListenerRef.current.remove();
+          partialListenerRef.current = null;
         }
-
-        console.error('Error generating response:', err);
+        if (errorListenerRef.current) {
+          errorListenerRef.current.remove();
+          errorListenerRef.current = null;
+        }
+        
+        const errorMessage = err instanceof Error ? err.message : 'Failed to generate response';
+        setError(errorMessage);
+        setInferenceState('error');
+        console.error('[useLLM] Error generating response:', err);
         throw err;
       }
     },
@@ -111,19 +294,27 @@ export function useLLM(): UseLLMReturn {
    * Stop ongoing generation
    */
   const stopGeneration = useCallback(() => {
-    try {
-      llmService.stopGeneration();
-      
-      if (isMountedRef.current) {
-        setInferenceState('idle');
-        setError(null);
-      }
-    } catch (err) {
-      console.error('Error stopping generation:', err);
+    console.log('[useLLM] Stopping generation');
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
+    
+    // Clean up listeners
+    if (partialListenerRef.current) {
+      partialListenerRef.current.remove();
+      partialListenerRef.current = null;
+    }
+    if (errorListenerRef.current) {
+      errorListenerRef.current.remove();
+      errorListenerRef.current = null;
+    }
+    
+    setInferenceState('idle');
+    setError(null);
   }, []);
 
-  return {
+  return useMemo(() => ({
     inferenceState,
     isReady,
     error,
@@ -131,5 +322,23 @@ export function useLLM(): UseLLMReturn {
     initialize,
     generateResponse,
     stopGeneration,
-  };
+  }), [inferenceState, isReady, error]);
+}
+
+/**
+ * Prepare prompt from messages
+ */
+function preparePrompt(messages: ChatMessage[], options: InferenceOptions): string {
+  const systemPrompt = options.systemPrompt || '';
+  let prompt = systemPrompt ? `${systemPrompt}\n\n` : '';
+
+  // Add conversation history
+  const conversationMessages = messages.filter(msg => msg.role !== 'system');
+  
+  for (const msg of conversationMessages) {
+    const roleLabel = msg.role === 'user' ? 'User' : 'Assistant';
+    prompt += `${roleLabel}: ${msg.content}\n\n`;
+  }
+
+  return prompt;
 }

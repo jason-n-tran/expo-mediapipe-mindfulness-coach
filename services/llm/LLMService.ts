@@ -69,11 +69,23 @@ export class LLMService implements LLMServiceInterface {
    * Initialize the LLM with model name
    */
   async initialize(modelName: string): Promise<void> {
+    console.log('[LLMService] === INITIALIZE START ===');
+    console.log('[LLMService] Model name:', modelName);
+    console.log('[LLMService] Already initialized?', this.initialized);
+    console.log('[LLMService] Existing handle?', this.modelHandle);
+    
     try {
-      console.log('Initializing LLM Service with model:', modelName);
-      
       // Store model name
       this.modelName = modelName;
+
+      console.log('[LLMService] Calling createModelFromDownloaded...');
+      console.log('[LLMService] Parameters:', {
+        modelName,
+        maxTokens: APP_CONFIG.model.defaultMaxTokens,
+        topK: 40,
+        temperature: APP_CONFIG.model.defaultTemperature,
+        randomSeed: 0
+      });
 
       // Create model handle from downloaded model
       this.modelHandle = await ExpoLlmMediapipe.createModelFromDownloaded(
@@ -84,15 +96,20 @@ export class LLMService implements LLMServiceInterface {
         0 // randomSeed
       );
 
-      console.log('Model handle created:', this.modelHandle);
+      console.log('[LLMService] Model handle created:', this.modelHandle);
 
       // Mark as initialized
       this.initialized = true;
-      console.log('LLM Service initialized successfully');
+      console.log('[LLMService] === INITIALIZE SUCCESS ===');
     } catch (error) {
-      console.error('Error initializing LLM Service:', error);
+      console.error('[LLMService] === INITIALIZE FAILED ===');
+      console.error('[LLMService] Error type:', error?.constructor?.name);
+      console.error('[LLMService] Error message:', error instanceof Error ? error.message : String(error));
+      console.error('[LLMService] Full error:', error);
+      
       this.initialized = false;
       this.modelHandle = null;
+      
       throw new LLMError(
         `Failed to initialize LLM Service: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'INITIALIZATION_FAILED'
