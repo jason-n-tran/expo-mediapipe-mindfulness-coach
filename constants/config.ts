@@ -4,9 +4,10 @@
 
 export const APP_CONFIG = {
   model: {
-    name: 'gemma-3n-E4B-it-int4.task', // Using working model for now
-    // name: 'gemma3-1B-it-int4.task', // Using working model for now
-    downloadUrl: 'configured-by-expo-llm-mediapipe',
+    // name: 'gemma-3n-E4B-it-int4.task', // Using working model for now
+    name: 'gemma3-1B-it-int4.task', // Using working model for now
+    // downloadUrl: 'https://huggingface.co/thismart/gemma-3n-E4B/resolve/main/gemma-3n-E4B-it-int4.task',
+    downloadUrl: 'https://huggingface.co/t-ghosh/gemma-tflite/resolve/main/gemma3-1B-it-int4.task',
     maxContextTokens: 2048,
     defaultTemperature: 0.7,
     defaultMaxTokens: 2048, // Increased to match maxContextTokens

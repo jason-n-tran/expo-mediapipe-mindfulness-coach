@@ -19,11 +19,9 @@ const storage = createMMKV({
 // Model configuration
 // Using the model name from config (now set to a working model)
 const MODEL_NAME = APP_CONFIG.model.name;
-// Using a VERIFIED working Gemma model URL
-const MODEL_URL = 'https://huggingface.co/thismart/gemma-3n-E4B/resolve/main/gemma-3n-E4B-it-int4.task';
-// const MODEL_URL = 'https://huggingface.co/t-ghosh/gemma-tflite/resolve/main/gemma3-1B-it-int4.task';
-// Expected model size in bytes (approximately 2.3GB based on the download logs)
-const EXPECTED_MODEL_SIZE = 4393618678; // 2.3GB
+const MODEL_URL = APP_CONFIG.model.downloadUrl;
+// Expected model size in bytes (approximately 1.5GB for Gemma 1B)
+const EXPECTED_MODEL_SIZE = 1500000000; // ~1.5GB
 
 // Error types
 export class ModelError extends Error {
@@ -88,7 +86,7 @@ export class ModelManager implements ModelManagerInterface {
 
         if (event.status === 'downloading') {
           const bytesDownloaded = event.bytesDownloaded || 0;
-          const totalBytes = event.totalBytes > 0 ? event.totalBytes : EXPECTED_MODEL_SIZE;
+          const totalBytes = (event.totalBytes && event.totalBytes > 0) ? event.totalBytes : EXPECTED_MODEL_SIZE;
           
           // Calculate percentage based on bytes downloaded
           const percentage = Math.min((bytesDownloaded / totalBytes) * 100, 99.9);
@@ -360,12 +358,27 @@ export class ModelManager implements ModelManagerInterface {
    */
   async deleteModel(): Promise<void> {
     try {
-      // expo-llm-mediapipe doesn't have a direct delete method
-      // We'll just clear the metadata
+      console.log('[ModelManager] Getting list of downloaded models...');
+      const downloadedModels = await ExpoLlmMediapipe.getDownloadedModels();
+      console.log('[ModelManager] Downloaded models:', downloadedModels);
+      
+      if (downloadedModels && downloadedModels.length > 0) {
+        console.log(`[ModelManager] Deleting ${downloadedModels.length} model(s)...`);
+        
+        for (const modelName of downloadedModels) {
+          console.log(`[ModelManager] Deleting model: ${modelName}`);
+          await ExpoLlmMediapipe.deleteDownloadedModel(modelName);
+          console.log(`[ModelManager] Successfully deleted model: ${modelName}`);
+        }
+      } else {
+        console.log('[ModelManager] No downloaded models found');
+      }
+      
+      // Clear metadata
       storage.set(STORAGE_KEYS.MODEL_METADATA, '');
-      console.log('Model metadata cleared');
+      console.log('[ModelManager] Model metadata cleared');
     } catch (error) {
-      console.error('Error deleting model:', error);
+      console.error('[ModelManager] Error deleting model:', error);
       throw error;
     }
   }

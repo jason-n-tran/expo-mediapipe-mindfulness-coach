@@ -22,6 +22,7 @@ interface LLMContextValue {
     onToken: (token: string) => void
   ) => Promise<string>;
   stopGeneration: () => void;
+  cleanup: () => Promise<void>;
 }
 
 const LLMContext = createContext<LLMContextValue | undefined>(undefined);

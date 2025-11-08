@@ -12,18 +12,31 @@ export default function Layout() {
 
   // Handle navigation based on initialization state
   useEffect(() => {
+    console.log('[Layout] ===== Navigation Effect Triggered =====');
+    console.log('[Layout] initializationState:', initializationState);
+    console.log('[Layout] isReady:', isReady);
+    console.log('[Layout] segments:', segments);
+    
     // Use setTimeout to ensure navigation happens after render
     const timer = setTimeout(() => {
       if (initializationState === 'model-missing') {
         // Navigate to model setup screen
         if (!segments.includes('model-setup')) {
+          console.log('[Layout] → Navigating to model-setup (model missing)');
           router.replace('/(drawer)/model-setup');
+        } else {
+          console.log('[Layout] Already on model-setup screen');
         }
       } else if (isReady) {
         // Navigate to chat screen when ready (default route)
         if (segments.includes('model-setup')) {
+          console.log('[Layout] → Navigating to chat (ready and on model-setup)');
           router.replace('/(drawer)/chat');
+        } else {
+          console.log('[Layout] Ready but not on model-setup, staying on current screen');
         }
+      } else {
+        console.log('[Layout] No navigation action needed');
       }
     }, 0);
 

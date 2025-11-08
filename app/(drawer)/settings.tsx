@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/slider';
 import { useSettings } from '@/hooks/useSettings';
 import { useModelManager } from '@/hooks/useModelManager';
+import { useLLMContext } from '@/contexts/LLMContext';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -48,6 +49,8 @@ export default function SettingsScreen() {
     deleteModel,
     validateModel,
   } = useModelManager();
+
+  const { cleanup: cleanupLLM } = useLLMContext();
 
   const [localTemperature, setLocalTemperature] = useState(inferenceSettings.temperature);
   const [localMaxTokens, setLocalMaxTokens] = useState(inferenceSettings.maxTokens);
@@ -168,9 +171,15 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Clean up LLM service first
+              console.log('[Settings] Cleaning up LLM service...');
+              await cleanupLLM();
+              
+              // Delete and re-download
               await deleteModel();
               await downloadModel();
-              Alert.alert('Success', 'Model re-downloaded successfully');
+              
+              Alert.alert('Success', 'Model re-downloaded successfully. Please restart the app to use it.');
             } catch (error) {
               Alert.alert('Error', 'Failed to re-download model');
             }
@@ -202,8 +211,15 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // First, clean up the LLM service to release the model handle
+              console.log('[Settings] Cleaning up LLM service...');
+              await cleanupLLM();
+              
+              // Then delete the model files
+              console.log('[Settings] Deleting model files...');
               await deleteModel();
-              Alert.alert('Success', 'Model deleted successfully');
+              
+              Alert.alert('Success', 'Model deleted successfully. Please restart the app or re-download the model.');
             } catch (error) {
               Alert.alert('Error', 'Failed to delete model');
             }
@@ -261,9 +277,9 @@ export default function SettingsScreen() {
             minValue={0}
             maxValue={1}
             step={0.01}
-            value={localTemperature}
-            onChange={(value) => handleTemperatureChange(value)}
-            onChangeEnd={(value) => handleTemperatureComplete(value)}
+            defaultValue={localTemperature}
+            onChange={(value: number) => handleTemperatureChange(value)}
+            onChangeEnd={(value: number) => handleTemperatureComplete(value)}
             size="md"
           >
             <SliderTrack>
@@ -286,9 +302,9 @@ export default function SettingsScreen() {
             minValue={128}
             maxValue={2048}
             step={64}
-            value={localMaxTokens}
-            onChange={(value) => handleMaxTokensChange(value)}
-            onChangeEnd={(value) => handleMaxTokensComplete(value)}
+            defaultValue={localMaxTokens}
+            onChange={(value: number) => handleMaxTokensChange(value)}
+            onChangeEnd={(value: number) => handleMaxTokensComplete(value)}
             size="md"
           >
             <SliderTrack>

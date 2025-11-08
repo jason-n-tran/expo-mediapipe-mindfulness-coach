@@ -8,6 +8,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useModelManager } from './useModelManager';
 import { useMessageStore } from './useMessageStore';
 import { useLLMContext } from '@/contexts/LLMContext';
+import ExpoLlmMediapipe from 'expo-llm-mediapipe';
+import { APP_CONFIG } from '@/constants/config';
 
 export type InitializationState = 
   | 'checking'           // Checking model availability
@@ -35,6 +37,14 @@ export function useAppInitialization(): UseAppInitializationReturn {
   const { loadMessages } = useMessageStore();
   const { initialize: initializeLLM, isReady: llmReady } = useLLMContext();
 
+  // Reset initialization flag when model becomes unavailable (e.g., deleted)
+  useEffect(() => {
+    if (!modelStatus.isAvailable && hasInitializedRef.current) {
+      console.log('[AppInit] Model became unavailable, resetting initialization flag');
+      hasInitializedRef.current = false;
+    }
+  }, [modelStatus.isAvailable]);
+
   /**
    * Main initialization sequence
    */
@@ -57,20 +67,28 @@ export function useAppInitialization(): UseAppInitializationReturn {
       setError(null);
       console.log('[AppInit] Step 1: Checking model availability...');
       setInitializationState('checking');
+      const downloadedModels = await ExpoLlmMediapipe.getDownloadedModels();
+      console.log('[ModelManager] Downloaded models:', downloadedModels);
 
-      // Step 1: Check model availability
+      // Step 1: Check model availability - use direct check first
+      console.log('[AppInit] Checking directly with ExpoLlmMediapipe...');
+      const isDownloadedDirect = await ExpoLlmMediapipe.isModelDownloaded(APP_CONFIG.model.name);
+      console.log('[AppInit] Direct check result:', isDownloadedDirect);
+      
+      // Also refresh ModelManager status
       await refreshStatus();
       console.log('[AppInit] Model status after refresh:', modelStatus);
       
-      if (!modelStatus.isAvailable) {
-        console.log('[AppInit] Model not available - need to download');
+      // Use direct check as source of truth
+      if (!isDownloadedDirect) {
+        console.log('[AppInit] Model not available (direct check) - need to download');
         // Model is missing - user needs to download it
         setInitializationState('model-missing');
         isInitializingRef.current = false;
         return;
       }
 
-      console.log('[AppInit] Model is available');
+      console.log('[AppInit] Model is available (direct check confirmed)');
 
       // Step 2: Initialize LLM service with cached model
       if (!llmReady && !hasInitializedRef.current) {
@@ -140,6 +158,28 @@ export function useAppInitialization(): UseAppInitializationReturn {
       console.log('[AppInit] Skipping initialization - conditions not met');
     }
   }, [initializationState, modelStatus.isAvailable, modelStatus.isDownloading, initializeApp]);
+
+  /**
+   * Re-check model availability when coming back from model-missing state
+   * This handles the case where user downloads model and navigates to chat
+   */
+  useEffect(() => {
+    const recheckInterval = setInterval(async () => {
+      if (initializationState === 'model-missing') {
+        console.log('[AppInit] Re-checking model availability (model-missing state)...');
+        const isDownloaded = await ExpoLlmMediapipe.isModelDownloaded(APP_CONFIG.model.name);
+        console.log('[AppInit] Re-check result:', isDownloaded);
+        
+        if (isDownloaded) {
+          console.log('[AppInit] Model now available! Triggering initialization...');
+          // Reset to checking state to trigger initialization
+          setInitializationState('checking');
+        }
+      }
+    }, 1000); // Check every second when in model-missing state
+
+    return () => clearInterval(recheckInterval);
+  }, [initializationState]);
 
   /**
    * Handle model downloading state

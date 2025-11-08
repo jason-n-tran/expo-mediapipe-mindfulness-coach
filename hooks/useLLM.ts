@@ -28,6 +28,7 @@ interface UseLLMReturn {
     onToken: (token: string) => void
   ) => Promise<string>;
   stopGeneration: () => void;
+  cleanup: () => Promise<void>;
 }
 
 export function useLLM(): UseLLMReturn {
@@ -270,6 +271,35 @@ export function useLLM(): UseLLMReturn {
     setError(null);
   }, []);
 
+  /**
+   * Clean up LLM resources (called when model is deleted)
+   */
+  const cleanup = useCallback(async () => {
+    console.log('[useLLM] === CLEANUP START ===');
+    
+    try {
+      // Stop any ongoing generation
+      stopGeneration();
+      
+      // Release model handle
+      if (modelHandleRef.current !== null) {
+        console.log('[useLLM] Releasing model handle:', modelHandleRef.current);
+        await ExpoLlmMediapipe.releaseModel(modelHandleRef.current);
+        modelHandleRef.current = null;
+      }
+      
+      // Reset state
+      setIsReady(false);
+      setInferenceState('idle');
+      setError(null);
+      
+      console.log('[useLLM] === CLEANUP COMPLETE ===');
+    } catch (err) {
+      console.error('[useLLM] Error during cleanup:', err);
+      // Don't throw - cleanup should be best-effort
+    }
+  }, [stopGeneration]);
+
   return useMemo(() => ({
     inferenceState,
     isReady,
@@ -278,7 +308,8 @@ export function useLLM(): UseLLMReturn {
     initialize,
     generateResponse,
     stopGeneration,
-  }), [inferenceState, isReady, error]);
+    cleanup,
+  }), [inferenceState, isReady, error, cleanup]);
 }
 
 /**
