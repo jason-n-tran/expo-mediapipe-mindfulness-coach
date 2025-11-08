@@ -60,15 +60,16 @@ export default function ChatScreen() {
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-scroll to bottom when new messages arrive
-  // useEffect(() => {
-  //   if (!isUserScrolling && messages.length > 0) {
-  //     // Small delay to ensure render is complete
-  //     setTimeout(() => {
-  //       flatListRef.current?.scrollToEnd({ animated: true });
-  //     }, 100);
-  //   }
-  // }, [messages.length, isUserScrolling]);
+  useEffect(() => {
+    // Only auto-scroll if the user is not manually scrolling up.
+    if (!isUserScrolling && messages.length > 0) {
+      // Use a brief timeout to allow the UI to render the new message first.
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+    // This effect runs whenever the messages array is updated.
+  }, [messages]);
 
   // Auto-scroll during streaming
   useEffect(() => {
@@ -199,7 +200,7 @@ export default function ChatScreen() {
       
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* Messages List */}
