@@ -12,17 +12,65 @@ export class MessageStore {
   private messageIndexKey = 'message_index';
   private sessionIndexKey = 'session_index';
   private currentSessionId: string | null = null;
+  
+  // Batching optimization
+  private pendingWrites: Map<string, any> = new Map();
+  private writeTimeout: NodeJS.Timeout | null = null;
+  private batchDelay = 100; // ms to wait before flushing batch
 
   constructor() {
     this.storage = createMMKV({
       id: 'mindfulness-coach-storage',
     });
   }
+  
+  /**
+   * Flush pending writes immediately
+   */
+  private flushPendingWrites(): void {
+    if (this.pendingWrites.size === 0) return;
+    
+    // Write all pending items
+    for (const [key, value] of this.pendingWrites.entries()) {
+      this.storage.set(key, value);
+    }
+    
+    this.pendingWrites.clear();
+    
+    if (this.writeTimeout) {
+      clearTimeout(this.writeTimeout);
+      this.writeTimeout = null;
+    }
+  }
+  
+  /**
+   * Schedule a batched write
+   */
+  private scheduleBatchedWrite(key: string, value: string): void {
+    this.pendingWrites.set(key, value);
+    
+    // Clear existing timeout
+    if (this.writeTimeout) {
+      clearTimeout(this.writeTimeout);
+    }
+    
+    // Schedule flush
+    this.writeTimeout = setTimeout(() => {
+      this.flushPendingWrites();
+    }, this.batchDelay);
+  }
+  
+  /**
+   * Write immediately (for critical operations)
+   */
+  private writeImmediate(key: string, value: string): void {
+    this.storage.set(key, value);
+  }
 
   /**
-   * Save a message to storage
+   * Save a message to storage (with batching optimization)
    */
-  async saveMessage(message: ChatMessage): Promise<void> {
+  async saveMessage(message: ChatMessage, immediate: boolean = false): Promise<void> {
     try {
       // Serialize and store the message
       const messageKey = this.getMessageKey(message.id);
@@ -30,16 +78,44 @@ export class MessageStore {
         ...message,
         timestamp: message.timestamp.toISOString(),
       });
-      this.storage.set(messageKey, serializedMessage);
+      
+      // Use batched write for better performance, unless immediate is requested
+      if (immediate) {
+        this.writeImmediate(messageKey, serializedMessage);
+      } else {
+        this.scheduleBatchedWrite(messageKey, serializedMessage);
+      }
 
-      // Update message index
-      await this.updateMessageIndex(message);
+      // Update message index (batched)
+      await this.updateMessageIndex(message, immediate);
 
-      // Update session index
-      await this.updateSessionIndex(message);
+      // Update session index (batched)
+      await this.updateSessionIndex(message, immediate);
+      
+      // For immediate writes, flush all pending writes
+      if (immediate) {
+        this.flushPendingWrites();
+      }
     } catch (error) {
       console.error('Failed to save message:', error);
       throw new Error('Failed to save message to storage');
+    }
+  }
+  
+  /**
+   * Save multiple messages in a batch (optimized)
+   */
+  async saveMessages(messages: ChatMessage[]): Promise<void> {
+    try {
+      for (const message of messages) {
+        await this.saveMessage(message, false);
+      }
+      
+      // Flush all writes at once
+      this.flushPendingWrites();
+    } catch (error) {
+      console.error('Failed to save messages:', error);
+      throw new Error('Failed to save messages to storage');
     }
   }
 
@@ -333,15 +409,20 @@ export class MessageStore {
     }
   }
 
-  private saveMessageIndex(index: MessageIndex[]): void {
+  private saveMessageIndex(index: MessageIndex[], immediate: boolean = false): void {
     try {
-      this.storage.set(this.messageIndexKey, JSON.stringify(index));
+      const serialized = JSON.stringify(index);
+      if (immediate) {
+        this.writeImmediate(this.messageIndexKey, serialized);
+      } else {
+        this.scheduleBatchedWrite(this.messageIndexKey, serialized);
+      }
     } catch (error) {
       console.error('Failed to save message index:', error);
     }
   }
 
-  private async updateMessageIndex(message: ChatMessage): Promise<void> {
+  private async updateMessageIndex(message: ChatMessage, immediate: boolean = false): Promise<void> {
     try {
       const index = this.getMessageIndex();
       
@@ -362,7 +443,7 @@ export class MessageStore {
         index.push(indexEntry);
       }
       
-      this.saveMessageIndex(index);
+      this.saveMessageIndex(index, immediate);
     } catch (error) {
       console.error('Failed to update message index:', error);
     }
@@ -378,15 +459,20 @@ export class MessageStore {
     }
   }
 
-  private saveSessionIndex(index: SessionIndex[]): void {
+  private saveSessionIndex(index: SessionIndex[], immediate: boolean = false): void {
     try {
-      this.storage.set(this.sessionIndexKey, JSON.stringify(index));
+      const serialized = JSON.stringify(index);
+      if (immediate) {
+        this.writeImmediate(this.sessionIndexKey, serialized);
+      } else {
+        this.scheduleBatchedWrite(this.sessionIndexKey, serialized);
+      }
     } catch (error) {
       console.error('Failed to save session index:', error);
     }
   }
 
-  private async updateSessionIndex(message: ChatMessage): Promise<void> {
+  private async updateSessionIndex(message: ChatMessage, immediate: boolean = false): Promise<void> {
     try {
       const index = this.getSessionIndex();
       const sessionIndex = index.find(entry => entry.sessionId === message.sessionId);
@@ -406,7 +492,7 @@ export class MessageStore {
         });
       }
       
-      this.saveSessionIndex(index);
+      this.saveSessionIndex(index, immediate);
     } catch (error) {
       console.error('Failed to update session index:', error);
     }

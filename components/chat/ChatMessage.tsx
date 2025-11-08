@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { ChatMessage as ChatMessageType } from '@/types/chat';
@@ -13,12 +13,13 @@ interface ChatMessageProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function ChatMessage({ 
+// Memoized component to prevent unnecessary re-renders
+const ChatMessageComponent = ({ 
   message, 
   isStreaming = false, 
   onLongPress,
   showTimestamp = false 
-}: ChatMessageProps) {
+}: ChatMessageProps) => {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   
@@ -37,7 +38,7 @@ export function ChatMessage({
 
   return (
     <AnimatedPressable
-      entering={FadeInUp.duration(300)}
+      entering={FadeInUp.duration(300).withInitialValues({ opacity: 0, transform: [{ translateY: 20 }] })}
       onLongPress={onLongPress}
       className={`mb-3 px-4 ${isUser ? 'items-end' : 'items-start'}`}
     >
@@ -80,4 +81,14 @@ export function ChatMessage({
       </View>
     </AnimatedPressable>
   );
-}
+};
+
+// Memoize with custom comparison to prevent re-renders when message content hasn't changed
+export const ChatMessage = memo(ChatMessageComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.isStreaming === nextProps.isStreaming &&
+    prevProps.showTimestamp === nextProps.showTimestamp
+  );
+});

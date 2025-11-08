@@ -16,6 +16,7 @@
     "@legendapp/motion": "^2.3.0",
     "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/drawer": "^7.7.2",
+    "@shopify/flash-list": "^2.2.0",
     "babel-plugin-module-resolver": "^5.0.2",
     "babel-preset-expo": "~54.0.0",
     "expo": "~54.0.22",

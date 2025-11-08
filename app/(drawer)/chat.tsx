@@ -6,13 +6,13 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { 
   View, 
-  FlatList, 
   KeyboardAvoidingView, 
   Platform,
   RefreshControl,
   ActivityIndicator,
   Text,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -55,27 +55,52 @@ export default function ChatScreen() {
     })));
   }, [messages]);
 
-  const flatListRef = useRef<FlatList>(null);
+  const flashListRef = useRef<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Debounced auto-scroll for better performance
   useEffect(() => {
     // Only auto-scroll if the user is not manually scrolling up.
     if (!isUserScrolling && messages.length > 0) {
-      // Use a brief timeout to allow the UI to render the new message first.
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+      // Clear existing timeout
+      if (scrollDebounceRef.current) {
+        clearTimeout(scrollDebounceRef.current);
+      }
+      
+      // Debounce scroll to avoid excessive updates
+      scrollDebounceRef.current = setTimeout(() => {
+        flashListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-    // This effect runs whenever the messages array is updated.
-  }, [messages]);
+    
+    return () => {
+      if (scrollDebounceRef.current) {
+        clearTimeout(scrollDebounceRef.current);
+      }
+    };
+  }, [messages, isUserScrolling]);
 
-  // Auto-scroll during streaming
+  // Auto-scroll during streaming (debounced)
   useEffect(() => {
     if (streamingMessage && !isUserScrolling) {
-      flatListRef.current?.scrollToEnd({ animated: false });
+      // Clear existing timeout
+      if (scrollDebounceRef.current) {
+        clearTimeout(scrollDebounceRef.current);
+      }
+      
+      // Debounce scroll during streaming for performance
+      scrollDebounceRef.current = setTimeout(() => {
+        flashListRef.current?.scrollToEnd({ animated: false });
+      }, 100);
     }
+    
+    return () => {
+      if (scrollDebounceRef.current) {
+        clearTimeout(scrollDebounceRef.current);
+      }
+    };
   }, [streamingMessage, isUserScrolling]);
 
   // Handle pull-to-refresh
@@ -118,18 +143,18 @@ export default function ChatScreen() {
     }, 1000);
   }, []);
 
-  // Render individual message
+  // Render individual message (memoized)
   const renderMessage = useCallback(({ item }: { item: ChatMessageType }) => {
-    console.log('[ChatScreen] Rendering message:', { 
-      id: item.id, 
-      role: item.role, 
-      contentLength: item.content.length 
-    });
     return <ChatMessage message={item} showTimestamp={false} />;
   }, []);
+  
+  // Get item type for FlashList optimization
+  const getItemType = useCallback((item: ChatMessageType) => {
+    return item.role; // Different types for user/assistant messages
+  }, []);
 
-  // Render streaming message (assistant's current response)
-  const renderStreamingMessage = () => {
+  // Render streaming message (assistant's current response) - memoized
+  const renderStreamingMessage = useCallback(() => {
     if (!streamingMessage) return null;
 
     return (
@@ -152,7 +177,7 @@ export default function ChatScreen() {
         </View>
       </View>
     );
-  };
+  }, [streamingMessage]);
 
   // Render empty state
   const renderEmptyState = () => {
@@ -203,16 +228,16 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {/* Messages List */}
-        <FlatList
-          ref={flatListRef}
+        {/* Messages List - Using FlashList for better performance */}
+        <FlashList
+          ref={flashListRef}
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
+          getItemType={getItemType}
           contentContainerStyle={{
             paddingTop: SPACING.md,
             paddingBottom: SPACING.md,
-            flexGrow: 1,
           }}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={
@@ -231,6 +256,8 @@ export default function ChatScreen() {
           onScrollBeginDrag={handleScrollBeginDrag}
           onScrollEndDrag={handleScrollEndDrag}
           showsVerticalScrollIndicator={true}
+          // Performance optimizations
+          drawDistance={400}
         />
 
         {/* Error Display */}

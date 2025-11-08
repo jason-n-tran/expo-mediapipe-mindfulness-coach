@@ -12,7 +12,7 @@ interface UseMessageStoreReturn {
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
-  saveMessage: (message: ChatMessage) => Promise<void>;
+  saveMessage: (message: ChatMessage, immediate?: boolean) => Promise<void>;
   loadMessages: (limit?: number) => Promise<void>;
   searchMessages: (query: string) => Promise<ChatMessage[]>;
   deleteMessages: (messageIds: string[]) => Promise<void>;
@@ -48,16 +48,17 @@ export function useMessageStore(): UseMessageStoreReturn {
   /**
    * Save a new message
    */
-  const saveMessage = useCallback(async (message: ChatMessage) => {
+  const saveMessage = useCallback(async (message: ChatMessage, immediate: boolean = false) => {
     try {
       setError(null);
       console.log('[useMessageStore] Saving message:', { 
         id: message.id, 
         role: message.role, 
-        contentLength: message.content.length 
+        contentLength: message.content.length,
+        immediate 
       });
       
-      await messageStore.saveMessage(message);
+      await messageStore.saveMessage(message, immediate);
       
       // Add message to local state immediately for optimistic update
       setMessages(prev => {

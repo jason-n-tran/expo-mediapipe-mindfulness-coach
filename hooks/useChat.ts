@@ -106,7 +106,8 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           metadata,
         };
 
-        await messageStoreHook.saveMessage(userMessage);
+        // Save user message with immediate write for responsiveness
+        await messageStoreHook.saveMessage(userMessage, true);
 
         // Prepare messages for inference (include conversation history)
         // Keep only the last 10 messages to avoid context overflow
@@ -166,8 +167,8 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
 
         console.log('[useChat] Saving assistant message with content length:', completedAssistantMessage.content.length);
         
-        // Save complete assistant message
-        await messageStoreHook.saveMessage(completedAssistantMessage);
+        // Save complete assistant message with immediate write
+        await messageStoreHook.saveMessage(completedAssistantMessage, true);
         
         console.log('[useChat] Message saved successfully');
 
