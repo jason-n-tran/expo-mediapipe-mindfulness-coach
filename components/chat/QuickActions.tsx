@@ -23,37 +23,37 @@ const QUICK_ACTIONS: ActionConfig[] = [
     action: QuickAction.BreathingExercise,
     label: 'Breathing',
     icon: 'leaf-outline',
-    color: COLORS.primary[500],
+    color: COLORS.mindfulness.breathing,
   },
   {
     action: QuickAction.DailyReflection,
     label: 'Reflection',
     icon: 'bulb-outline',
-    color: COLORS.secondary[500],
+    color: COLORS.mindfulness.reflection,
   },
   {
     action: QuickAction.GratitudePractice,
     label: 'Gratitude',
     icon: 'heart-outline',
-    color: '#10b981',
+    color: COLORS.mindfulness.gratitude,
   },
   {
     action: QuickAction.StressRelief,
     label: 'Stress Relief',
     icon: 'water-outline',
-    color: '#3b82f6',
+    color: COLORS.mindfulness.stress,
   },
   {
     action: QuickAction.MorningIntention,
     label: 'Morning',
     icon: 'sunny-outline',
-    color: '#f59e0b',
+    color: COLORS.mindfulness.morning,
   },
   {
     action: QuickAction.EveningReview,
     label: 'Evening',
     icon: 'moon-outline',
-    color: '#8b5cf6',
+    color: COLORS.mindfulness.evening,
   },
 ];
 

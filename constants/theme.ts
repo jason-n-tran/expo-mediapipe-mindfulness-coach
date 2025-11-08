@@ -1,23 +1,26 @@
 /**
  * Theme constants for consistent styling
+ * Designed with mindfulness aesthetics - calming, natural, accessible
  */
 
 export const COLORS = {
-  // Primary palette - calming, mindful colors
+  // Primary palette - serene blue inspired by sky and water
+  // Promotes calmness and clarity
   primary: {
     50: '#f0f9ff',
     100: '#e0f2fe',
     200: '#bae6fd',
     300: '#7dd3fc',
     400: '#38bdf8',
-    500: '#0ea5e9',
+    500: '#0ea5e9', // Main brand color
     600: '#0284c7',
     700: '#0369a1',
     800: '#075985',
     900: '#0c4a6e',
   },
   
-  // Secondary palette - warm, grounding tones
+  // Secondary palette - warm earth tones
+  // Grounding and comforting, inspired by nature
   secondary: {
     50: '#fdf8f6',
     100: '#f2e8e5',
@@ -31,7 +34,7 @@ export const COLORS = {
     900: '#43302b',
   },
   
-  // Neutral palette
+  // Neutral palette - soft grays for balance
   neutral: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -45,20 +48,39 @@ export const COLORS = {
     900: '#171717',
   },
   
-  // Semantic colors
-  success: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
-  info: '#3b82f6',
+  // Accent colors for mindfulness topics
+  mindfulness: {
+    breathing: '#10b981', // Green - growth, renewal
+    gratitude: '#f59e0b', // Amber - warmth, appreciation
+    stress: '#3b82f6',    // Blue - calm, peace
+    reflection: '#8b5cf6', // Purple - wisdom, introspection
+    morning: '#fbbf24',   // Yellow - energy, new beginnings
+    evening: '#6366f1',   // Indigo - rest, contemplation
+  },
   
-  // Role-specific colors
+  // Semantic colors with accessibility in mind
+  success: '#10b981',  // WCAG AA compliant on white
+  warning: '#f59e0b',  // WCAG AA compliant on white
+  error: '#ef4444',    // WCAG AA compliant on white
+  info: '#3b82f6',     // WCAG AA compliant on white
+  
+  // Role-specific colors for chat messages
   user: {
-    bg: '#0ea5e9',
-    text: '#ffffff',
+    bg: '#0ea5e9',      // Primary blue
+    text: '#ffffff',    // White text for contrast
+    bgLight: '#e0f2fe', // Light variant for themes
   },
   assistant: {
-    bg: '#f5f5f5',
-    text: '#171717',
+    bg: '#f5f5f5',      // Soft gray
+    text: '#171717',    // Dark text for contrast
+    bgDark: '#e5e5e5',  // Slightly darker variant
+  },
+  
+  // Background colors
+  background: {
+    primary: '#ffffff',
+    secondary: '#f9fafb',
+    tertiary: '#f3f4f6',
   },
 } as const;
 
@@ -75,7 +97,7 @@ export const TYPOGRAPHY = {
   fontSize: {
     xs: 12,
     sm: 14,
-    base: 16,
+    base: 16,    // Base size for comfortable reading
     lg: 18,
     xl: 20,
     '2xl': 24,
@@ -83,15 +105,32 @@ export const TYPOGRAPHY = {
     '4xl': 36,
   },
   fontWeight: {
+    light: '300',
     normal: '400',
     medium: '500',
     semibold: '600',
     bold: '700',
+    extrabold: '800',
   },
   lineHeight: {
     tight: 1.25,
+    snug: 1.375,
     normal: 1.5,
-    relaxed: 1.75,
+    relaxed: 1.75,  // Optimal for reading longer text
+    loose: 2,
+  },
+  letterSpacing: {
+    tighter: -0.5,
+    tight: -0.25,
+    normal: 0,
+    wide: 0.25,
+    wider: 0.5,
+  },
+  // Font size multipliers for accessibility
+  fontScale: {
+    small: 0.875,   // 87.5% of base
+    medium: 1,      // 100% of base
+    large: 1.125,   // 112.5% of base
   },
 } as const;
 

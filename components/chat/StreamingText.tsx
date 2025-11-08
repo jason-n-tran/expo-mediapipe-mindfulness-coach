@@ -5,9 +5,11 @@ import Animated, {
   withRepeat, 
   withSequence, 
   withTiming,
-  useSharedValue 
+  useSharedValue,
+  FadeIn,
+  withSpring,
 } from 'react-native-reanimated';
-import { TYPOGRAPHY } from '@/constants/theme';
+import { TYPOGRAPHY, ANIMATION } from '@/constants/theme';
 
 interface StreamingTextProps {
   text: string;
@@ -15,9 +17,11 @@ interface StreamingTextProps {
   className?: string;
   style?: any;
   bufferSize?: number; // Number of tokens to buffer before updating UI
+  enableAnimations?: boolean;
 }
 
 const AnimatedText = Animated.createAnimatedComponent(Text);
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Memoized component with token buffering for smooth streaming
 const StreamingTextComponent = ({
@@ -26,33 +30,46 @@ const StreamingTextComponent = ({
   className = '',
   style = {},
   bufferSize = 3, // Default buffer size from APP_CONFIG
+  enableAnimations = true,
 }: StreamingTextProps) => {
   const [displayText, setDisplayText] = useState('');
   const bufferRef = useRef<string>('');
   const lastUpdateRef = useRef<number>(Date.now());
   const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Cursor animation
+  // Cursor animation - smooth pulsing
   const cursorOpacity = useSharedValue(1);
+  const cursorScale = useSharedValue(1);
   
   useEffect(() => {
-    if (!isComplete) {
-      // Animate cursor while streaming
+    if (!isComplete && enableAnimations) {
+      // Animate cursor while streaming with smooth pulse
       cursorOpacity.value = withRepeat(
         withSequence(
-          withTiming(0, { duration: 500 }),
-          withTiming(1, { duration: 500 })
+          withTiming(0.3, { duration: 600 }),
+          withTiming(1, { duration: 600 })
+        ),
+        -1,
+        true
+      );
+      
+      cursorScale.value = withRepeat(
+        withSequence(
+          withSpring(0.95, { damping: 10, stiffness: 100 }),
+          withSpring(1, { damping: 10, stiffness: 100 })
         ),
         -1,
         true
       );
     } else {
-      cursorOpacity.value = 0;
+      cursorOpacity.value = withTiming(0, { duration: ANIMATION.duration.fast });
+      cursorScale.value = 1;
     }
-  }, [isComplete]);
+  }, [isComplete, enableAnimations]);
   
   const cursorStyle = useAnimatedStyle(() => ({
     opacity: cursorOpacity.value,
+    transform: [{ scale: cursorScale.value }],
   }));
 
   // Token buffering effect
@@ -107,7 +124,10 @@ const StreamingTextComponent = ({
   }, [text, isComplete, bufferSize, displayText.length]);
 
   return (
-    <View className="flex-row items-start">
+    <AnimatedView 
+      className="flex-row items-start"
+      entering={enableAnimations ? FadeIn.duration(ANIMATION.duration.fast) : undefined}
+    >
       <Text
         className={className}
         style={[
@@ -125,7 +145,7 @@ const StreamingTextComponent = ({
           </AnimatedText>
         )}
       </Text>
-    </View>
+    </AnimatedView>
   );
 };
 
@@ -133,6 +153,7 @@ const StreamingTextComponent = ({
 export const StreamingText = memo(StreamingTextComponent, (prevProps, nextProps) => {
   return (
     prevProps.text === nextProps.text &&
-    prevProps.isComplete === nextProps.isComplete
+    prevProps.isComplete === nextProps.isComplete &&
+    prevProps.enableAnimations === nextProps.enableAnimations
   );
 });

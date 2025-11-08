@@ -8,7 +8,16 @@ import {
   Alert,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import {
   Slider,
   SliderTrack,
@@ -17,6 +26,8 @@ import {
 } from '@/components/ui/slider';
 import { useSettings } from '@/hooks/useSettings';
 import { useModelManager } from '@/hooks/useModelManager';
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function SettingsScreen() {
   const {
@@ -40,6 +51,11 @@ export default function SettingsScreen() {
 
   const [localTemperature, setLocalTemperature] = useState(inferenceSettings.temperature);
   const [localMaxTokens, setLocalMaxTokens] = useState(inferenceSettings.maxTokens);
+
+  // Animation values for button interactions
+  const resetButtonScale = useSharedValue(1);
+  const actionButtonScale = useSharedValue(1);
+  const dangerButtonScale = useSharedValue(1);
 
   // Update local state when settings change
   React.useEffect(() => {
@@ -71,7 +87,18 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleResetSettings = () => {
+  const handleResetSettings = async () => {
+    // Haptic feedback
+    if (uiPreferences.hapticFeedback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    // Animate button
+    resetButtonScale.value = withSequence(
+      withTiming(0.95, { duration: 100 }),
+      withSpring(1, { damping: 10, stiffness: 200 })
+    );
+    
     Alert.alert(
       'Reset Settings',
       'Are you sure you want to reset all settings to defaults?',
@@ -94,6 +121,11 @@ export default function SettingsScreen() {
   };
 
   const handleThemeChange = async (theme: 'light' | 'dark' | 'auto') => {
+    // Haptic feedback
+    if (uiPreferences.hapticFeedback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     try {
       await updateUIPreferences({ theme });
     } catch (error) {
@@ -102,6 +134,11 @@ export default function SettingsScreen() {
   };
 
   const handleFontSizeChange = async (fontSize: 'small' | 'medium' | 'large') => {
+    // Haptic feedback
+    if (uiPreferences.hapticFeedback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     try {
       await updateUIPreferences({ fontSize });
     } catch (error) {
@@ -109,7 +146,18 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleRedownloadModel = () => {
+  const handleRedownloadModel = async () => {
+    // Haptic feedback
+    if (uiPreferences.hapticFeedback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
+    // Animate button
+    actionButtonScale.value = withSequence(
+      withTiming(0.95, { duration: 100 }),
+      withSpring(1, { damping: 10, stiffness: 200 })
+    );
+    
     Alert.alert(
       'Re-download Model',
       'This will delete the current model and download it again. This may take several minutes.',
@@ -132,7 +180,18 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleDeleteModel = () => {
+  const handleDeleteModel = async () => {
+    // Haptic feedback
+    if (uiPreferences.hapticFeedback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
+    
+    // Animate button
+    dangerButtonScale.value = withSequence(
+      withTiming(0.95, { duration: 100 }),
+      withSpring(1, { damping: 10, stiffness: 200 })
+    );
+    
     Alert.alert(
       'Delete Model',
       'Are you sure you want to delete the cached model? You will need to download it again to use the app.',
@@ -166,6 +225,19 @@ export default function SettingsScreen() {
     if (!date) return 'Never';
     return new Date(date).toLocaleDateString();
   };
+
+  // Animated styles
+  const resetButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: resetButtonScale.value }],
+  }));
+
+  const actionButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: actionButtonScale.value }],
+  }));
+
+  const dangerButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: dangerButtonScale.value }],
+  }));
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -229,13 +301,14 @@ export default function SettingsScreen() {
         </View>
 
         {/* Reset Button */}
-        <TouchableOpacity
-          style={styles.resetButton}
+        <AnimatedTouchable
+          style={[styles.resetButton, resetButtonAnimatedStyle]}
           onPress={handleResetSettings}
           disabled={settingsLoading}
+          activeOpacity={0.7}
         >
           <Text style={styles.resetButtonText}>Reset to Defaults</Text>
-        </TouchableOpacity>
+        </AnimatedTouchable>
       </View>
 
       {/* UI Preferences Panel */}
@@ -306,9 +379,14 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={uiPreferences.hapticFeedback}
-              onValueChange={(value) => updateUIPreferences({ hapticFeedback: value })}
-              trackColor={{ false: '#D1D5DB', true: '#4A90E2' }}
-              thumbColor="#FFFFFF"
+              onValueChange={async (value) => {
+                if (value && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                updateUIPreferences({ hapticFeedback: value });
+              }}
+              trackColor={{ false: '#d4d4d4', true: '#0ea5e9' }}
+              thumbColor="#ffffff"
             />
           </View>
         </View>
@@ -322,9 +400,14 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={uiPreferences.showTimestamps}
-              onValueChange={(value) => updateUIPreferences({ showTimestamps: value })}
-              trackColor={{ false: '#D1D5DB', true: '#4A90E2' }}
-              thumbColor="#FFFFFF"
+              onValueChange={async (value) => {
+                if (uiPreferences.hapticFeedback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                updateUIPreferences({ showTimestamps: value });
+              }}
+              trackColor={{ false: '#d4d4d4', true: '#0ea5e9' }}
+              thumbColor="#ffffff"
             />
           </View>
         </View>
@@ -338,9 +421,14 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={uiPreferences.messageAnimations}
-              onValueChange={(value) => updateUIPreferences({ messageAnimations: value })}
-              trackColor={{ false: '#D1D5DB', true: '#4A90E2' }}
-              thumbColor="#FFFFFF"
+              onValueChange={async (value) => {
+                if (uiPreferences.hapticFeedback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                updateUIPreferences({ messageAnimations: value });
+              }}
+              trackColor={{ false: '#d4d4d4', true: '#0ea5e9' }}
+              thumbColor="#ffffff"
             />
           </View>
         </View>
@@ -378,51 +466,54 @@ export default function SettingsScreen() {
         {/* Model Actions */}
         {modelStatus.isAvailable && (
           <>
-            <TouchableOpacity
-              style={styles.actionButton}
+            <AnimatedTouchable
+              style={[styles.actionButton, actionButtonAnimatedStyle]}
               onPress={handleRedownloadModel}
               disabled={modelLoading || modelStatus.isDownloading}
+              activeOpacity={0.7}
             >
               {modelLoading ? (
-                <ActivityIndicator color="#4A90E2" />
+                <ActivityIndicator color="#0ea5e9" />
               ) : (
                 <Text style={styles.actionButtonText}>Re-download Model</Text>
               )}
-            </TouchableOpacity>
+            </AnimatedTouchable>
 
-            <TouchableOpacity
-              style={[styles.actionButton, styles.dangerButton]}
+            <AnimatedTouchable
+              style={[styles.actionButton, styles.dangerButton, dangerButtonAnimatedStyle]}
               onPress={handleDeleteModel}
               disabled={modelLoading || modelStatus.isDownloading}
+              activeOpacity={0.7}
             >
               {modelLoading ? (
-                <ActivityIndicator color="#EF4444" />
+                <ActivityIndicator color="#ef4444" />
               ) : (
                 <Text style={[styles.actionButtonText, styles.dangerButtonText]}>
                   Delete Model Cache
                 </Text>
               )}
-            </TouchableOpacity>
+            </AnimatedTouchable>
           </>
         )}
 
         {!modelStatus.isAvailable && !modelStatus.isDownloading && (
-          <TouchableOpacity
-            style={styles.actionButton}
+          <AnimatedTouchable
+            style={[styles.actionButton, actionButtonAnimatedStyle]}
             onPress={downloadModel}
             disabled={modelLoading}
+            activeOpacity={0.7}
           >
             {modelLoading ? (
-              <ActivityIndicator color="#4A90E2" />
+              <ActivityIndicator color="#0ea5e9" />
             ) : (
               <Text style={styles.actionButtonText}>Download Model</Text>
             )}
-          </TouchableOpacity>
+          </AnimatedTouchable>
         )}
 
         {modelStatus.isDownloading && (
           <View style={styles.downloadingContainer}>
-            <ActivityIndicator size="large" color="#4A90E2" />
+            <ActivityIndicator size="large" color="#0ea5e9" />
             <Text style={styles.downloadingText}>
               Downloading... {modelStatus.downloadProgress?.toFixed(0)}%
             </Text>
@@ -443,14 +534,14 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#f9fafb', // COLORS.background.secondary
   },
   contentContainer: {
     padding: 16,
     paddingBottom: 32,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#ffffff', // COLORS.background.primary
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -463,13 +554,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#171717', // COLORS.neutral[900]
     marginBottom: 4,
+    letterSpacing: -0.25,
   },
   sectionDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#737373', // COLORS.neutral[500]
     marginBottom: 16,
+    lineHeight: 20,
   },
   settingItem: {
     marginBottom: 20,
@@ -483,20 +576,22 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: '#404040', // COLORS.neutral[700]
+    letterSpacing: -0.25,
   },
   settingValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#4A90E2',
+    color: '#0ea5e9', // COLORS.primary[500]
   },
   settingDescription: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#737373', // COLORS.neutral[500]
     marginBottom: 8,
+    lineHeight: 18,
   },
   resetButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#f3f4f6', // COLORS.background.tertiary
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -506,11 +601,12 @@ const styles = StyleSheet.create({
   resetButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: '#404040', // COLORS.neutral[700]
+    letterSpacing: -0.25,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#f3f4f6', // COLORS.background.tertiary
     borderRadius: 8,
     padding: 2,
     marginTop: 8,
@@ -523,7 +619,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   segmentButtonActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#ffffff', // COLORS.background.primary
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -533,10 +629,10 @@ const styles = StyleSheet.create({
   segmentButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#737373', // COLORS.neutral[500]
   },
   segmentButtonTextActive: {
-    color: '#4A90E2',
+    color: '#0ea5e9', // COLORS.primary[500]
     fontWeight: '600',
   },
   settingRow: {
@@ -556,38 +652,39 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#737373', // COLORS.neutral[500]
     fontWeight: '500',
   },
   infoValue: {
     fontSize: 14,
-    color: '#374151',
+    color: '#404040', // COLORS.neutral[700]
     fontWeight: '600',
   },
   infoValueSuccess: {
-    color: '#10B981',
+    color: '#10b981', // COLORS.success
   },
   actionButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#f3f4f6', // COLORS.background.tertiary
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#e5e5e5', // COLORS.neutral[200]
   },
   actionButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#4A90E2',
+    color: '#0ea5e9', // COLORS.primary[500]
+    letterSpacing: -0.25,
   },
   dangerButton: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
+    backgroundColor: '#fef2f2', // Light red background
+    borderColor: '#fee2e2', // Light red border
   },
   dangerButtonText: {
-    color: '#EF4444',
+    color: '#ef4444', // COLORS.error
   },
   downloadingContainer: {
     alignItems: 'center',
@@ -596,16 +693,20 @@ const styles = StyleSheet.create({
   downloadingText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#6B7280',
+    color: '#737373', // COLORS.neutral[500]
+    lineHeight: 20,
   },
   errorContainer: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#fef2f2', // Light red background
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#fee2e2',
   },
   errorText: {
     fontSize: 13,
-    color: '#EF4444',
+    color: '#ef4444', // COLORS.error
+    lineHeight: 18,
   },
 });

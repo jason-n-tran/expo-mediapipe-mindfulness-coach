@@ -21,6 +21,7 @@ import { QuickActions } from '@/components/chat/QuickActions';
 import { StreamingText } from '@/components/chat/StreamingText';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useChat } from '@/hooks/useChat';
+import { useSettings } from '@/hooks/useSettings';
 import { ChatMessage as ChatMessageType, QuickAction } from '@/types';
 import { COLORS, SPACING } from '@/constants/theme';
 
@@ -36,6 +37,8 @@ export default function ChatScreen() {
     sendQuickAction,
     stopGeneration,
   } = useChat();
+  
+  const { uiPreferences } = useSettings();
 
   // Debug: Log when isReady changes
   useEffect(() => {
@@ -71,7 +74,7 @@ export default function ChatScreen() {
       
       // Debounce scroll to avoid excessive updates
       scrollDebounceRef.current = setTimeout(() => {
-        flashListRef.current?.scrollToEnd({ animated: true });
+        // flashListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
     
@@ -145,8 +148,14 @@ export default function ChatScreen() {
 
   // Render individual message (memoized)
   const renderMessage = useCallback(({ item }: { item: ChatMessageType }) => {
-    return <ChatMessage message={item} showTimestamp={false} />;
-  }, []);
+    return (
+      <ChatMessage 
+        message={item} 
+        showTimestamp={uiPreferences.showTimestamps}
+        enableAnimations={uiPreferences.messageAnimations}
+      />
+    );
+  }, [uiPreferences.showTimestamps, uiPreferences.messageAnimations]);
   
   // Get item type for FlashList optimization
   const getItemType = useCallback((item: ChatMessageType) => {
@@ -173,11 +182,12 @@ export default function ChatScreen() {
             text={streamingMessage}
             isComplete={false}
             className="text-base text-neutral-900"
+            enableAnimations={uiPreferences.messageAnimations}
           />
         </View>
       </View>
     );
-  }, [streamingMessage]);
+  }, [streamingMessage, uiPreferences.messageAnimations]);
 
   // Render empty state
   const renderEmptyState = () => {
@@ -274,6 +284,7 @@ export default function ChatScreen() {
           onSend={handleSendMessage}
           disabled={isGenerating || !isReady}
           placeholder={isReady ? "Share what's on your mind..." : "Initializing..."}
+          enableHaptics={uiPreferences.hapticFeedback}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

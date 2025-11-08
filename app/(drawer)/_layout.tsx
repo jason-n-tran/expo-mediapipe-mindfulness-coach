@@ -48,23 +48,33 @@ export default function Layout() {
   return (
     <Drawer
       screenOptions={{
-        drawerActiveTintColor: '#4A90E2',
-        drawerInactiveTintColor: '#6B7280',
-        drawerActiveBackgroundColor: '#EFF6FF',
+        drawerActiveTintColor: '#0ea5e9', // COLORS.primary[500]
+        drawerInactiveTintColor: '#737373', // COLORS.neutral[500]
+        drawerActiveBackgroundColor: '#e0f2fe', // COLORS.primary[100]
         drawerStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: '#ffffff', // COLORS.background.primary
         },
         drawerLabelStyle: {
           fontSize: 16,
           fontWeight: '500',
+          letterSpacing: -0.25,
         },
         headerStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: '#ffffff', // COLORS.background.primary
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: '#f5f5f5', // COLORS.neutral[100]
         },
-        headerTintColor: '#111827',
+        headerTintColor: '#171717', // COLORS.neutral[900]
         headerTitleStyle: {
           fontWeight: '600',
+          fontSize: 18,
+          letterSpacing: -0.25,
         },
+        // Smooth screen transitions
+        animation: 'slide_from_right',
+        animationDuration: 300,
       }}
     >
       {/* Chat Screen - Default Route */}

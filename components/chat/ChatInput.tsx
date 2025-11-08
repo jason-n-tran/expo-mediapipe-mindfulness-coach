@@ -1,46 +1,67 @@
 import React, { useState } from 'react';
 import { View, TextInput, Pressable, Platform } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { COLORS, SPACING, TYPOGRAPHY, LAYOUT, BORDER_RADIUS } from '@/constants/theme';
+import { COLORS, SPACING, TYPOGRAPHY, LAYOUT, BORDER_RADIUS, ANIMATION } from '@/constants/theme';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  enableHaptics?: boolean;
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function ChatInput({ 
   onSend, 
   disabled = false, 
-  placeholder = 'Type your message...' 
+  placeholder = 'Type your message...',
+  enableHaptics = true,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
-  const [inputHeight, setInputHeight] = useState(LAYOUT.inputMinHeight);
+  const buttonScale = useSharedValue(1);
+  const buttonRotation = useSharedValue(0);
 
   const handleSend = async () => {
     if (message.trim() && !disabled) {
-      // Haptic feedback
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      // Enhanced haptic feedback
+      if (enableHaptics && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
+      
+      // Animate button
+      buttonScale.value = withSequence(
+        withTiming(0.85, { duration: 100 }),
+        withSpring(1, { damping: 10, stiffness: 200 })
+      );
+      
+      buttonRotation.value = withSequence(
+        withTiming(-10, { duration: 100 }),
+        withSpring(0, { damping: 10, stiffness: 200 })
+      );
       
       onSend(message.trim());
       setMessage('');
-      setInputHeight(LAYOUT.inputMinHeight);
     }
   };
 
-  const handleContentSizeChange = (event: any) => {
-    const { height } = event.nativeEvent.contentSize;
-    const newHeight = Math.min(
-      Math.max(LAYOUT.inputMinHeight, height + 16),
-      LAYOUT.inputMaxHeight
-    );
-    setInputHeight(newHeight);
-  };
-
   const canSend = message.trim().length > 0 && !disabled;
+
+  // Animated styles for send button
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: buttonScale.value },
+      { rotate: `${buttonRotation.value}deg` },
+    ],
+  }));
 
   return (
     <View 
@@ -61,7 +82,6 @@ export function ChatInput({
           <TextInput
             value={message}
             onChangeText={setMessage}
-            onContentSizeChange={handleContentSizeChange}
             placeholder={placeholder}
             placeholderTextColor={COLORS.neutral[400]}
             multiline
@@ -75,30 +95,32 @@ export function ChatInput({
               paddingBottom: Platform.OS === 'ios' ? 8 : 4,
             }}
             returnKeyType="default"
-            blurOnSubmit={false}
           />
         </View>
 
-        <Pressable
+        <AnimatedPressable
           onPress={handleSend}
           disabled={!canSend}
           className={`w-11 h-11 rounded-full items-center justify-center ${
             canSend ? 'bg-blue-500' : 'bg-neutral-300'
           }`}
-          style={{
-            shadowColor: canSend ? COLORS.primary[500] : 'transparent',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            elevation: canSend ? 3 : 0,
-          }}
+          style={[
+            {
+              shadowColor: canSend ? COLORS.primary[500] : 'transparent',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: canSend ? 3 : 0,
+            },
+            buttonAnimatedStyle,
+          ]}
         >
           <Ionicons 
             name="send" 
             size={20} 
             color={canSend ? '#ffffff' : COLORS.neutral[500]} 
           />
-        </Pressable>
+        </AnimatedPressable>
       </View>
     </View>
   );
