@@ -1,12 +1,8 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
 import Animated, { 
-  FadeInDown, 
-  FadeInUp, 
-  FadeIn,
   SlideInRight,
   SlideInLeft,
-  ZoomIn,
   withSpring,
   withTiming,
   useAnimatedStyle,
@@ -15,12 +11,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { ChatMessage as ChatMessageType } from '@/types/chat';
-import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, ANIMATION } from '@/constants/theme';
+import { TYPOGRAPHY, ANIMATION } from '@/constants/theme';
+import {
+  Menu,
+  MenuItem,
+  MenuItemLabel,
+} from '@/components/ui/menu';
 
 interface ChatMessageProps {
   message: ChatMessageType;
   isStreaming?: boolean;
-  onLongPress?: () => void;
+  onDelete?: (messageId: string) => void;
   showTimestamp?: boolean;
   enableAnimations?: boolean;
 }
@@ -31,13 +32,14 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const ChatMessageComponent = ({ 
   message, 
   isStreaming = false, 
-  onLongPress,
+  onDelete,
   showTimestamp = false,
   enableAnimations = true,
 }: ChatMessageProps) => {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const scale = useSharedValue(1);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // System messages are typically hidden or styled differently
   if (isSystem) {
@@ -85,7 +87,13 @@ const ChatMessageComponent = ({
       withSpring(1, { damping: 10, stiffness: 200 })
     );
     
-    onLongPress?.();
+    setIsMenuOpen(true);
+  };
+
+  // Handle delete action
+  const handleDelete = () => {
+    setIsMenuOpen(false);
+    onDelete?.(message.id);
   };
 
   // Animated style for press feedback
@@ -94,51 +102,65 @@ const ChatMessageComponent = ({
   }));
 
   return (
-    <AnimatedPressable
-      entering={getEntranceAnimation()}
-      onLongPress={handleLongPress}
-      delayLongPress={500}
-      className={`mb-3 px-4 ${isUser ? 'items-end' : 'items-start'}`}
-      style={animatedStyle}
-    >
-      <View
-        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-          isUser 
-            ? 'bg-blue-500 rounded-br-sm' 
-            : 'bg-neutral-100 rounded-bl-sm'
-        }`}
-        style={{
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 1,
-        }}
+    <View className={`mb-3 px-4 ${isUser ? 'items-end' : 'items-start'}`}>
+      <AnimatedPressable
+        entering={getEntranceAnimation()}
+        onLongPress={handleLongPress}
+        delayLongPress={500}
+        style={animatedStyle}
       >
-        <Text
-          className={`text-base leading-relaxed ${
-            isUser ? 'text-white' : 'text-neutral-900'
+        <View
+          className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+            isUser 
+              ? 'bg-blue-500 rounded-br-sm' 
+              : 'bg-neutral-100 rounded-bl-sm'
           }`}
           style={{
-            fontSize: TYPOGRAPHY.fontSize.base,
-            lineHeight: TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.relaxed,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.05,
+            shadowRadius: 2,
+            elevation: 1,
           }}
         >
-          {message.content}
-        </Text>
-        
-        {showTimestamp && (
           <Text
-            className={`text-xs mt-1 ${
-              isUser ? 'text-blue-100' : 'text-neutral-500'
+            className={`text-base leading-relaxed ${
+              isUser ? 'text-white' : 'text-neutral-900'
             }`}
-            style={{ fontSize: TYPOGRAPHY.fontSize.xs }}
+            style={{
+              fontSize: TYPOGRAPHY.fontSize.base,
+              lineHeight: TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.relaxed,
+            }}
           >
-            {formatTimestamp(message.timestamp)}
+            {message.content}
           </Text>
-        )}
-      </View>
-    </AnimatedPressable>
+          
+          {showTimestamp && (
+            <Text
+              className={`text-xs mt-1 ${
+                isUser ? 'text-blue-100' : 'text-neutral-500'
+              }`}
+              style={{ fontSize: TYPOGRAPHY.fontSize.xs }}
+            >
+              {formatTimestamp(message.timestamp)}
+            </Text>
+          )}
+        </View>
+      </AnimatedPressable>
+
+      <Menu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        onOpen={() => setIsMenuOpen(true)}
+        trigger={({ ...triggerProps }) => {
+          return <Text {...triggerProps} className="text-background-900 h-1"> </Text>;
+        }}
+      >
+        <MenuItem key="delete" textValue="Delete" onPress={handleDelete}>
+          <MenuItemLabel size="sm">Delete Message</MenuItemLabel>
+        </MenuItem>
+      </Menu>
+    </View>
   );
 };
 
@@ -149,6 +171,7 @@ export const ChatMessage = memo(ChatMessageComponent, (prevProps, nextProps) => 
     prevProps.message.content === nextProps.message.content &&
     prevProps.isStreaming === nextProps.isStreaming &&
     prevProps.showTimestamp === nextProps.showTimestamp &&
-    prevProps.enableAnimations === nextProps.enableAnimations
+    prevProps.enableAnimations === nextProps.enableAnimations &&
+    prevProps.onDelete === nextProps.onDelete
   );
 });

@@ -33,6 +33,7 @@ interface UseChatReturn {
   setTopic: (topic: MindfulnessTopic) => void;
   stopGeneration: () => void;
   clearChat: () => Promise<void>;
+  deleteMessages: (messageIds: string[]) => Promise<void>;
   updateInferenceOptions: (options: Partial<InferenceOptions>) => void;
   updatePromptOptions: (options: Partial<PromptOptions>) => void;
 }
@@ -306,6 +307,7 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     setTopic,
     stopGeneration,
     clearChat,
+    deleteMessages: messageStoreHook.deleteMessages,
     updateInferenceOptions,
     updatePromptOptions,
   };

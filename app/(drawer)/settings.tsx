@@ -265,7 +265,6 @@ export default function SettingsScreen() {
             onChange={(value) => handleTemperatureChange(value)}
             onChangeEnd={(value) => handleTemperatureComplete(value)}
             size="md"
-            className="w-full"
           >
             <SliderTrack>
               <SliderFilledTrack />
@@ -291,7 +290,6 @@ export default function SettingsScreen() {
             onChange={(value) => handleMaxTokensChange(value)}
             onChangeEnd={(value) => handleMaxTokensComplete(value)}
             size="md"
-            className="w-full"
           >
             <SliderTrack>
               <SliderFilledTrack />

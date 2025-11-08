@@ -36,6 +36,7 @@ export default function ChatScreen() {
     sendMessage,
     sendQuickAction,
     stopGeneration,
+    deleteMessages,
   } = useChat();
   
   const { uiPreferences } = useSettings();
@@ -146,6 +147,15 @@ export default function ChatScreen() {
     }, 1000);
   }, []);
 
+  // Handle message deletion
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await deleteMessages([messageId]);
+    } catch (err) {
+      console.error('Failed to delete message:', err);
+    }
+  }, [deleteMessages]);
+
   // Render individual message (memoized)
   const renderMessage = useCallback(({ item }: { item: ChatMessageType }) => {
     return (
@@ -153,9 +163,10 @@ export default function ChatScreen() {
         message={item} 
         showTimestamp={uiPreferences.showTimestamps}
         enableAnimations={uiPreferences.messageAnimations}
+        onDelete={handleDeleteMessage}
       />
     );
-  }, [uiPreferences.showTimestamps, uiPreferences.messageAnimations]);
+  }, [uiPreferences.showTimestamps, uiPreferences.messageAnimations, handleDeleteMessage]);
   
   // Get item type for FlashList optimization
   const getItemType = useCallback((item: ChatMessageType) => {

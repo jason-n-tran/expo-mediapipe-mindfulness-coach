@@ -216,7 +216,7 @@ export class MessageStore {
       // Delete messages from storage
       for (const messageId of messageIds) {
         const messageKey = this.getMessageKey(messageId);
-        this.storage.delete(messageKey);
+        this.storage.remove(messageKey);
       }
       
       // Update message index
@@ -224,10 +224,13 @@ export class MessageStore {
       const updatedIndex = index.filter(
         entry => !messageIds.includes(entry.messageId)
       );
-      this.saveMessageIndex(updatedIndex);
+      this.saveMessageIndex(updatedIndex, true);
       
       // Update session indexes
       await this.rebuildSessionIndexes();
+      
+      // Flush all pending writes
+      this.flushPendingWrites();
     } catch (error) {
       console.error('Failed to delete messages:', error);
       throw new Error('Failed to delete messages from storage');
@@ -244,12 +247,12 @@ export class MessageStore {
       // Delete all messages
       for (const indexEntry of index) {
         const messageKey = this.getMessageKey(indexEntry.messageId);
-        this.storage.delete(messageKey);
+        this.storage.remove(messageKey);
       }
       
       // Clear indexes
-      this.storage.delete(this.messageIndexKey);
-      this.storage.delete(this.sessionIndexKey);
+      this.storage.remove(this.messageIndexKey);
+      this.storage.remove(this.sessionIndexKey);
       
       this.currentSessionId = null;
     } catch (error) {
@@ -527,11 +530,12 @@ export class MessageStore {
         }
       }
       
-      // Save rebuilt index
+      // Save rebuilt index with immediate write
       const newIndex = Array.from(sessionMap.values());
-      this.saveSessionIndex(newIndex);
+      this.saveSessionIndex(newIndex, true);
     } catch (error) {
       console.error('Failed to rebuild session indexes:', error);
+      throw error;
     }
   }
 }
