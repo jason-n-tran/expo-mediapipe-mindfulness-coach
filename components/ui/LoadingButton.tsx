@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary[500],
   },
   dangerText: {
-    color: COLORS.error,
+    color: COLORS.error[500],
   },
   disabledText: {
     opacity: 0.7,

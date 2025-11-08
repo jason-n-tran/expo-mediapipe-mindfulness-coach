@@ -72,9 +72,6 @@ export default function Layout() {
           fontSize: 18,
           letterSpacing: -0.25,
         },
-        // Smooth screen transitions
-        animation: 'slide_from_right',
-        animationDuration: 300,
       }}
     >
       {/* Chat Screen - Default Route */}
@@ -85,6 +82,18 @@ export default function Layout() {
           drawerLabel: 'Chat',
           drawerIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles-outline" size={size} color={color} />
+          ),
+        }} 
+      />
+      
+      {/* Chat History Screen */}
+      <Drawer.Screen 
+        name="chat-history" 
+        options={{ 
+          title: 'Chat History',
+          drawerLabel: 'History',
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" size={size} color={color} />
           ),
         }} 
       />

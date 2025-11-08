@@ -59,10 +59,18 @@ export const COLORS = {
   },
   
   // Semantic colors with accessibility in mind
-  success: '#10b981',  // WCAG AA compliant on white
-  warning: '#f59e0b',  // WCAG AA compliant on white
-  error: '#ef4444',    // WCAG AA compliant on white
-  info: '#3b82f6',     // WCAG AA compliant on white
+  success: {
+    500: '#10b981',  // WCAG AA compliant on white
+  },
+  warning: {
+    500: '#f59e0b',  // WCAG AA compliant on white
+  },
+  error: {
+    500: '#ef4444',    // WCAG AA compliant on white
+  },
+  info: {
+    500: '#3b82f6',     // WCAG AA compliant on white
+  },
   
   // Role-specific colors for chat messages
   user: {
@@ -81,6 +89,13 @@ export const COLORS = {
     primary: '#ffffff',
     secondary: '#f9fafb',
     tertiary: '#f3f4f6',
+  },
+  
+  // Text colors
+  text: {
+    primary: '#171717',    // neutral-900
+    secondary: '#525252',  // neutral-600
+    tertiary: '#737373',   // neutral-500
   },
 } as const;
 

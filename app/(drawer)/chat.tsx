@@ -11,9 +11,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   Text,
+  TouchableOpacity,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
@@ -22,10 +25,39 @@ import { StreamingText } from '@/components/chat/StreamingText';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useChat } from '@/hooks/useChat';
 import { useSettings } from '@/hooks/useSettings';
+import { useChatHistory } from '@/hooks/useChatHistory';
 import { ChatMessage as ChatMessageType, QuickAction } from '@/types';
 import { COLORS, SPACING } from '@/constants/theme';
 
 export default function ChatScreen() {
+  const router = useRouter();
+  const navigation = useNavigation();
+  const params = useLocalSearchParams();
+  const { currentSessionId, createNewChat, switchToChat } = useChatHistory();
+  
+  // Track the active session ID - use params first, then currentSessionId
+  const [activeSessionId, setActiveSessionId] = useState<string | undefined>(() => {
+    return (params.sessionId as string) || currentSessionId || undefined;
+  });
+  
+  // Update active session when params or currentSessionId changes
+  useEffect(() => {
+    const newSessionId = (params.sessionId as string) || currentSessionId || undefined;
+    console.log('[ChatScreen] Session change detected:', {
+      newSessionId,
+      activeSessionId,
+      paramsSessionId: params.sessionId,
+      currentSessionId,
+    });
+    if (newSessionId && newSessionId !== activeSessionId) {
+      console.log('[ChatScreen] Switching to session:', newSessionId);
+      setActiveSessionId(newSessionId);
+      if (params.sessionId) {
+        switchToChat(params.sessionId as string);
+      }
+    }
+  }, [params.sessionId, currentSessionId]);
+  
   const {
     messages,
     isGenerating,
@@ -37,9 +69,39 @@ export default function ChatScreen() {
     sendQuickAction,
     stopGeneration,
     deleteMessages,
-  } = useChat();
+  } = useChat({ sessionId: activeSessionId });
   
   const { uiPreferences } = useSettings();
+
+  // Set up header buttons
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', marginRight: 8 }}>
+          <TouchableOpacity
+            onPress={() => {
+              const newId = createNewChat();
+              setActiveSessionId(newId);
+              // Use replace to force re-render with new session
+              router.replace({
+                pathname: '/(drawer)/chat',
+                params: { sessionId: newId },
+              });
+            }}
+            style={{ padding: 8, marginRight: 8 }}
+          >
+            <Ionicons name="add-circle-outline" size={24} color={COLORS.primary[500]} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/(drawer)/chat-history')}
+            style={{ padding: 8 }}
+          >
+            <Ionicons name="time-outline" size={24} color={COLORS.primary[500]} />
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [navigation, router, createNewChat]);
 
   // Debug: Log when isReady changes
   useEffect(() => {
@@ -48,16 +110,21 @@ export default function ChatScreen() {
 
   // Debug: Log when messages change
   useEffect(() => {
-    console.log('[ChatScreen] Messages changed. Count:', messages.length);
+    console.log('[ChatScreen] Messages changed for session:', activeSessionId);
+    console.log('[ChatScreen] Messages count:', messages.length);
     console.log('[ChatScreen] Assistant message count:', messages.filter(m => m.role === 'assistant').length);
     console.log('[ChatScreen] User message count:', messages.filter(m => m.role === 'user').length);
-    console.log('[ChatScreen] Last 3 messages:', messages.slice(-3).map(m => ({ 
-      id: m.id, 
-      role: m.role, 
-      contentLength: m.content.length,
-      content: m.content.substring(0, 30) 
-    })));
-  }, [messages]);
+    if (messages.length > 0) {
+      console.log('[ChatScreen] First message session:', messages[0].sessionId);
+      console.log('[ChatScreen] Last 3 messages:', messages.slice(-3).map(m => ({ 
+        id: m.id, 
+        role: m.role, 
+        sessionId: m.sessionId,
+        contentLength: m.content.length,
+        content: m.content.substring(0, 30) 
+      })));
+    }
+  }, [messages, activeSessionId]);
 
   const flashListRef = useRef<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -240,7 +307,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-white" edges={['bottom']} key={activeSessionId}>
       {/* Offline Indicator */}
       <OfflineIndicator />
       
@@ -251,6 +318,7 @@ export default function ChatScreen() {
       >
         {/* Messages List - Using FlashList for better performance */}
         <FlashList
+          key={`messages-${activeSessionId}`}
           ref={flashListRef}
           data={messages}
           renderItem={renderMessage}

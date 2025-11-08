@@ -45,12 +45,23 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     inferenceOptions: initialInferenceOptions,
   } = options || {};
 
-  // Initialize hooks
-  const messageStoreHook = useMessageStore();
-  const llmHook = useLLMContext();
+  // Use the provided sessionId or get/create a default one
+  const sessionId = initialSessionId || (() => {
+    const { chatHistoryStore } = require('@/services/storage/ChatHistoryStore');
+    let currentId = chatHistoryStore.getCurrentSessionId();
+    
+    if (!currentId) {
+      currentId = uuidv4();
+      chatHistoryStore.createSession(currentId);
+      chatHistoryStore.setCurrentSessionId(currentId);
+    }
+    
+    return currentId;
+  })();
 
-  // Local state - use a persistent session ID or null to show all messages
-  const [sessionId] = useState<string | null>(initialSessionId || null);
+  // Initialize hooks - messageStoreHook will reload when sessionId changes
+  const messageStoreHook = useMessageStore(sessionId);
+  const llmHook = useLLMContext();
   const [streamingMessage, setStreamingMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [promptOptions, setPromptOptions] = useState<PromptOptions>(
@@ -103,12 +114,16 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           role: 'user',
           content,
           timestamp: new Date(),
-          sessionId: sessionId || 'default',
+          sessionId: sessionId,
           metadata,
         };
 
         // Save user message with immediate write for responsiveness
         await messageStoreHook.saveMessage(userMessage, true);
+        
+        // Update chat history
+        const { chatHistoryStore: historyStore } = require('@/services/storage/ChatHistoryStore');
+        historyStore.updateSessionFromMessage(userMessage);
 
         // Prepare messages for inference (include conversation history)
         // Keep only the last 10 messages to avoid context overflow
@@ -130,7 +145,7 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           role: 'assistant',
           content: '',
           timestamp: new Date(),
-          sessionId: sessionId || 'default',
+          sessionId: sessionId,
           metadata: {
             temperature: fullInferenceOptions.temperature,
           },
@@ -170,6 +185,10 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
         
         // Save complete assistant message with immediate write
         await messageStoreHook.saveMessage(completedAssistantMessage, true);
+        
+        // Update chat history
+        const { chatHistoryStore: historyStore2 } = require('@/services/storage/ChatHistoryStore');
+        historyStore2.updateSessionFromMessage(completedAssistantMessage);
         
         console.log('[useChat] Message saved successfully');
 

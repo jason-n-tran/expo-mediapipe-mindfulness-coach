@@ -22,7 +22,7 @@ interface UseMessageStoreReturn {
   refreshMessages: () => Promise<void>;
 }
 
-export function useMessageStore(): UseMessageStoreReturn {
+export function useMessageStore(sessionId?: string): UseMessageStoreReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,13 @@ export function useMessageStore(): UseMessageStoreReturn {
       setIsLoading(true);
       setError(null);
       const loadedMessages = await messageStore.getMessages(limit);
-      setMessages(loadedMessages);
+      
+      // Filter by session if sessionId is provided
+      const filteredMessages = sessionId 
+        ? loadedMessages.filter(m => m.sessionId === sessionId)
+        : loadedMessages;
+      
+      setMessages(filteredMessages);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
       setError(errorMessage);
@@ -43,7 +49,7 @@ export function useMessageStore(): UseMessageStoreReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [sessionId]);
 
   /**
    * Save a new message
@@ -181,9 +187,10 @@ export function useMessageStore(): UseMessageStoreReturn {
   }, [loadMessages]);
 
   /**
-   * Load messages on mount
+   * Load messages on mount and when sessionId changes
    */
   useEffect(() => {
+    console.log('[useMessageStore] Loading messages for session:', sessionId);
     loadMessages();
   }, [loadMessages]);
 

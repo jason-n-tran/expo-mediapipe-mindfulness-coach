@@ -63,14 +63,14 @@ const ChatMessageComponent = ({
       return SlideInRight
         .duration(ANIMATION.duration.normal)
         .springify()
-        .damping(15)
+        .damping(150)
         .stiffness(150);
     } else {
       // Assistant messages slide in from left with fade and slight scale
       return SlideInLeft
         .duration(ANIMATION.duration.normal)
         .springify()
-        .damping(15)
+        .damping(150)
         .stiffness(150);
     }
   };

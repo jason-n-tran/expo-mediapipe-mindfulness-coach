@@ -4,7 +4,7 @@
 
 import { ChatMessage, ChatSession, ConversationStats } from '../../types';
 
-export interface MessageStore {
+export interface IMessageStore {
   // Save a message
   saveMessage(message: ChatMessage): Promise<void>;
   
