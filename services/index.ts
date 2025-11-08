@@ -4,3 +4,4 @@
 
 export * from './llm';
 export * from './storage';
+export * from './error';
