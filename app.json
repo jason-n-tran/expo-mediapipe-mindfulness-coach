@@ -31,6 +31,12 @@
       "expo-router",
       "expo-llm-mediapipe"
     ],
-    "scheme": "your-app-scheme"
+    "scheme": "your-app-scheme",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "21186c23-ffa7-43ac-92b9-b15f124bb289"
+      }
+    }
   }
 }
